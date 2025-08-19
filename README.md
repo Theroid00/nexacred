@@ -2,19 +2,19 @@
 
 ![Nexacred Logo](https://via.placeholder.com/600x150/667eea/ffffff?text=NEXACRED)
 
-## 🚀 Overview
+##  Overview
 
 **Nexacred** is a comprehensive, fraud-resistant credit scoring system that combines traditional machine learning techniques with blockchain technology to provide secure, transparent, and reliable credit assessments. The system integrates multiple technologies to create a robust platform for credit evaluation and management.
 
 ### Key Features
 
-- 🔐 **Fraud-Resistant Architecture**: Advanced ML algorithms and blockchain integration
-- 🌐 **Full-Stack Solution**: Complete web application with modern UI/UX
-- 🤖 **Machine Learning Powered**: Sophisticated credit scoring models
-- ⛓️ **Blockchain Integration**: Immutable credit score storage and verification
-- 🛡️ **Security First**: Encrypted data handling and secure authentication
-- 📊 **Real-time Processing**: Fast credit score calculations and updates
-- 🔄 **RESTful API**: Well-documented backend API for integration
+-  **Fraud-Resistant Architecture**: Advanced ML algorithms and blockchain integration
+-  **Full-Stack Solution**: Complete web application with modern UI/UX
+-  **Machine Learning Powered**: Sophisticated credit scoring models
+-  **Blockchain Integration**: Immutable credit score storage and verification
+-  **Security First**: Encrypted data handling and secure authentication
+-  **Real-time Processing**: Fast credit score calculations and updates
+-  **RESTful API**: Well-documented backend API for integration
 
 ### Tech Stack
 
