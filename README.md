@@ -380,15 +380,7 @@ We welcome contributions to Nexacred! Please follow these steps:
 - Add tests for new features
 - Update documentation as needed
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support and Contact
-
-- **Email**: support@nexacred.com
-- **Documentation**: [https://docs.nexacred.com](https://docs.nexacred.com)
-- **Issues**: [GitHub Issues](https://github.com/your-username/nexacred/issues)
 
 ## 🙏 Acknowledgments
 
