@@ -160,8 +160,8 @@ contract CreditScore {
      * @param _newScore New score in [300, 850]
      * @param _reason Short reason or model/version identifier
      */
-    function updateScore(address _user, uint256 _newScore, string calldata _reason)
-        external
+    function updateScore(address _user, uint256 _newScore, string memory _reason)
+        public
         onlyAuthorizedUpdater
         validAddress(_user)
         validScore(_newScore)
