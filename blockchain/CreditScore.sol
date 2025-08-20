@@ -1,266 +1,352 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.26;
 
 /**
  * @title CreditScore
- * @dev A smart contract for managing fraud-resistant credit scores on the blockchain
- * @notice This contract allows authorized entities to set and retrieve credit scores
- * @author Nexacred Development Team
+ * @notice Admin-controlled, fraud-aware credit score registry with immutable on-chain audit trail.
+ * @dev Minimal-dependency design using Solidity 0.8.x checked math (no SafeMath needed).
+ *      Exposes integration-friendly methods: getCreditScore, updateScore, flagFraud.
+ *      Thoroughly commented and modular to allow future extensions:
+ *        - Peer-to-Peer Lending hooks
+ *        - Tokenized Credit History
+ *        - Decentralized Identity (DID)
  */
 contract CreditScore {
-    
-    // State variables
+    // ---------------------------------------------------------------------
+    // Ownership & Roles (minimal dependencies)
+    // ---------------------------------------------------------------------
     address public owner;
-    mapping(address => uint256) private creditScores;
-    mapping(address => bool) public authorizedScorers;
-    mapping(address => uint256) public lastUpdated;
-    mapping(address => string) public scoreMetadata; // Additional metadata about the score
-    
+    mapping(address => bool) public authorizedUpdaters; // Oracles/admins that can update scores
+
+    // ---------------------------------------------------------------------
+    // Credit Score Storage
+    // ---------------------------------------------------------------------
+    mapping(address => uint256) private creditScores;     // Current score
+    mapping(address => uint256) public lastUpdated;       // Last update timestamp
+    mapping(address => string) public scoreMetadata;      // Optional metadata for latest score (e.g., model version)
+
+    // Immutable audit trail of score changes (append-only)
+    struct ScoreChange {
+        uint256 oldScore;
+        uint256 newScore;
+        uint256 timestamp;
+        address actor;       // updater (oracle/admin)
+        string reason;       // short reason/model info
+    }
+    mapping(address => ScoreChange[]) private scoreHistory; // user => history array
+
+    // ---------------------------------------------------------------------
+    // Fraud flagging
+    // ---------------------------------------------------------------------
+    mapping(address => bool) private fraudFlag;
+    struct FraudEvent {
+        bool flagged;        // true when flagged, false when cleared
+        uint256 timestamp;
+        address actor;       // who flagged/cleared
+        string reason;       // reason for flag or clearance
+    }
+    mapping(address => FraudEvent[]) private fraudHistory; // user => fraud events
+
+    // ---------------------------------------------------------------------
     // Events
+    // ---------------------------------------------------------------------
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event UpdaterAuthorized(address indexed updater, bool authorized);
+
+    event ScoreUpdated(
+        address indexed user,
+        uint256 oldScore,
+        uint256 newScore,
+        uint256 timestamp,
+        address indexed actor,
+        string reason
+    );
+
+    event FraudFlagSet(
+        address indexed user,
+        bool indexed flagged,
+        uint256 timestamp,
+        address indexed actor,
+        string reason
+    );
+
+    // Backwards-compat events for existing integrations
     event CreditScoreSet(address indexed user, uint256 score, uint256 timestamp, address indexed scorer);
     event AuthorizedScorerAdded(address indexed scorer);
     event AuthorizedScorerRemoved(address indexed scorer);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    
+
+    // ---------------------------------------------------------------------
     // Modifiers
+    // ---------------------------------------------------------------------
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only contract owner can perform this action");
+        require(msg.sender == owner, "Not owner");
         _;
     }
-    
-    modifier onlyAuthorizedScorer() {
-        require(authorizedScorers[msg.sender] || msg.sender == owner, "Only authorized scorers can set credit scores");
+
+    modifier onlyAuthorizedUpdater() {
+        require(msg.sender == owner || authorizedUpdaters[msg.sender], "Not authorized updater");
         _;
     }
-    
+
+    modifier validAddress(address _addr) {
+        require(_addr != address(0), "Zero address");
+        _;
+    }
+
     modifier validScore(uint256 _score) {
-        require(_score >= 300 && _score <= 850, "Credit score must be between 300 and 850");
+        require(_score >= 300 && _score <= 850, "Score out of range");
         _;
     }
-    
-    modifier validAddress(address _address) {
-        require(_address != address(0), "Invalid address: cannot be zero address");
-        _;
-    }
-    
-    // Constructor
+
+    // ---------------------------------------------------------------------
+    // Lifecycle
+    // ---------------------------------------------------------------------
     constructor() {
         owner = msg.sender;
-        authorizedScorers[msg.sender] = true;
+        authorizedUpdaters[msg.sender] = true; // bootstrapped
+        emit UpdaterAuthorized(msg.sender, true);
+        // Backwards-compat event
         emit AuthorizedScorerAdded(msg.sender);
     }
-    
-    /**
-     * @dev Set credit score for a user
-     * @param _user The address of the user
-     * @param _score The credit score to set (300-850)
-     */
-    function setCreditScore(address _user, uint256 _score) 
-        public 
-        onlyAuthorizedScorer 
-        validAddress(_user)
-        validScore(_score) 
+
+    function transferOwnership(address _newOwner)
+        public
+        onlyOwner
+        validAddress(_newOwner)
     {
-        creditScores[_user] = _score;
-        lastUpdated[_user] = block.timestamp;
-        
-        emit CreditScoreSet(_user, _score, block.timestamp, msg.sender);
+        require(_newOwner != owner, "Same owner");
+        address prev = owner;
+        owner = _newOwner;
+        authorizedUpdaters[_newOwner] = true; // convenience
+        emit OwnershipTransferred(prev, _newOwner);
+        emit UpdaterAuthorized(_newOwner, true);
+        // Backwards-compat event
+        emit AuthorizedScorerAdded(_newOwner);
     }
-    
-    /**
-     * @dev Set credit score with metadata
-     * @param _user The address of the user
-     * @param _score The credit score to set (300-850)
-     * @param _metadata Additional metadata about the score calculation
-     */
-    function setCreditScoreWithMetadata(address _user, uint256 _score, string memory _metadata) 
-        public 
-        onlyAuthorizedScorer 
-        validAddress(_user)
-        validScore(_score) 
+
+    // ---------------------------------------------------------------------
+    // Role management
+    // ---------------------------------------------------------------------
+    function setAuthorizedUpdater(address _updater, bool _authorized)
+        external
+        onlyOwner
+        validAddress(_updater)
     {
-        creditScores[_user] = _score;
-        lastUpdated[_user] = block.timestamp;
-        scoreMetadata[_user] = _metadata;
-        
-        emit CreditScoreSet(_user, _score, block.timestamp, msg.sender);
+        authorizedUpdaters[_updater] = _authorized;
+        emit UpdaterAuthorized(_updater, _authorized);
+        // Backwards-compat events for existing tools
+        if (_authorized) {
+            emit AuthorizedScorerAdded(_updater);
+        } else {
+            emit AuthorizedScorerRemoved(_updater);
+        }
     }
-    
+
+    function isAuthorizedUpdater(address _updater)
+        external
+        view
+        returns (bool)
+    {
+        return authorizedUpdaters[_updater];
+    }
+
+    // ---------------------------------------------------------------------
+    // Core: Credit Score Management
+    // ---------------------------------------------------------------------
     /**
-     * @dev Get credit score for a user
-     * @param _user The address of the user
-     * @return The credit score of the user
+     * @notice Update the user's credit score (admin/oracle-controlled).
+     * @dev Emits ScoreUpdated and legacy CreditScoreSet for compatibility.
+     * @param _user User address whose score is updated
+     * @param _newScore New score in [300, 850]
+     * @param _reason Short reason or model/version identifier
      */
-    function getCreditScore(address _user) 
-        public 
-        view 
+    function updateScore(address _user, uint256 _newScore, string memory _reason)
+        public
+        onlyAuthorizedUpdater
         validAddress(_user)
-        returns (uint256) 
+        validScore(_newScore)
+    {
+        uint256 old = creditScores[_user];
+        creditScores[_user] = _newScore;
+        lastUpdated[_user] = block.timestamp;
+        scoreMetadata[_user] = _reason; // store latest reason as metadata for convenience
+
+        // append to audit trail
+        scoreHistory[_user].push(
+            ScoreChange({
+                oldScore: old,
+                newScore: _newScore,
+                timestamp: block.timestamp,
+                actor: msg.sender,
+                reason: _reason
+            })
+        );
+
+        emit ScoreUpdated(_user, old, _newScore, block.timestamp, msg.sender, _reason);
+        // legacy event many apps might listen to
+        emit CreditScoreSet(_user, _newScore, block.timestamp, msg.sender);
+    }
+
+    // Backwards-compat function names for existing code (aliases)
+    function setCreditScore(address _user, uint256 _score)
+        public
+        onlyAuthorizedUpdater
+        validAddress(_user)
+        validScore(_score)
+    {
+        updateScore(_user, _score, "");
+    }
+
+    function setCreditScoreWithMetadata(address _user, uint256 _score, string calldata _metadata)
+        public
+        onlyAuthorizedUpdater
+        validAddress(_user)
+        validScore(_score)
+    {
+        updateScore(_user, _score, _metadata);
+    }
+
+    /**
+     * @notice Read-only getters used by frontend/backend.
+     */
+    function getCreditScore(address _user)
+        public
+        view
+        validAddress(_user)
+        returns (uint256)
     {
         return creditScores[_user];
     }
-    
-    /**
-     * @dev Get credit score with metadata and timestamp
-     * @param _user The address of the user
-     * @return score The credit score
-     * @return metadata The metadata associated with the score
-     * @return timestamp The timestamp when the score was last updated
-     */
-    function getCreditScoreDetails(address _user) 
-        public 
-        view 
+
+    function getCreditScoreDetails(address _user)
+        public
+        view
         validAddress(_user)
-        returns (uint256 score, string memory metadata, uint256 timestamp) 
+        returns (uint256 score, string memory metadata, uint256 timestamp)
     {
         return (creditScores[_user], scoreMetadata[_user], lastUpdated[_user]);
     }
-    
-    /**
-     * @dev Check if a user has a credit score
-     * @param _user The address of the user
-     * @return True if the user has a credit score (score > 0), false otherwise
-     */
-    function hasCreditScore(address _user) 
-        public 
-        view 
+
+    function hasCreditScore(address _user)
+        public
+        view
         validAddress(_user)
-        returns (bool) 
+        returns (bool)
     {
         return creditScores[_user] > 0;
     }
-    
-    /**
-     * @dev Add an authorized scorer
-     * @param _scorer The address to authorize
-     */
-    function addAuthorizedScorer(address _scorer) 
-        public 
-        onlyOwner 
-        validAddress(_scorer)
-    {
-        require(!authorizedScorers[_scorer], "Address is already an authorized scorer");
-        authorizedScorers[_scorer] = true;
-        emit AuthorizedScorerAdded(_scorer);
+
+    // ---------------------------------------------------------------------
+    // Audit Trail (score history)
+    // ---------------------------------------------------------------------
+    function getScoreChangeCount(address _user) external view returns (uint256) {
+        return scoreHistory[_user].length;
     }
-    
-    /**
-     * @dev Remove an authorized scorer
-     * @param _scorer The address to remove authorization from
-     */
-    function removeAuthorizedScorer(address _scorer) 
-        public 
-        onlyOwner 
-        validAddress(_scorer)
+
+    function getScoreChange(address _user, uint256 _index)
+        external
+        view
+        returns (
+            uint256 oldScore,
+            uint256 newScore,
+            uint256 timestamp,
+            address actor,
+            string memory reason
+        )
     {
-        require(authorizedScorers[_scorer], "Address is not an authorized scorer");
-        require(_scorer != owner, "Cannot remove owner from authorized scorers");
-        
-        authorizedScorers[_scorer] = false;
-        emit AuthorizedScorerRemoved(_scorer);
+        require(_index < scoreHistory[_user].length, "Index out of bounds");
+        ScoreChange storage ch = scoreHistory[_user][_index];
+        return (ch.oldScore, ch.newScore, ch.timestamp, ch.actor, ch.reason);
     }
-    
-    /**
-     * @dev Check if an address is an authorized scorer
-     * @param _scorer The address to check
-     * @return True if the address is authorized to set scores
-     */
-    function isAuthorizedScorer(address _scorer) 
-        public 
-        view 
-        validAddress(_scorer)
-        returns (bool) 
+
+    function getLatestScoreChange(address _user)
+        external
+        view
+        returns (
+            bool exists,
+            uint256 oldScore,
+            uint256 newScore,
+            uint256 timestamp,
+            address actor,
+            string memory reason
+        )
     {
-        return authorizedScorers[_scorer];
+        uint256 len = scoreHistory[_user].length;
+        if (len == 0) {
+            return (false, 0, 0, 0, address(0), "");
+        }
+        ScoreChange storage ch = scoreHistory[_user][len - 1];
+        return (true, ch.oldScore, ch.newScore, ch.timestamp, ch.actor, ch.reason);
     }
-    
+
+    // ---------------------------------------------------------------------
+    // Fraud flagging
+    // ---------------------------------------------------------------------
     /**
-     * @dev Transfer ownership of the contract
-     * @param _newOwner The address of the new owner
+     * @notice Flag or clear a user for fraud. Admin-controlled. Emits immutable history events.
+     * @param _user User address
+     * @param _flag True to flag as fraud, false to clear
+     * @param _reason Reason for flagging/clearing
      */
-    function transferOwnership(address _newOwner) 
-        public 
-        onlyOwner 
-        validAddress(_newOwner)
+    function flagFraud(address _user, bool _flag, string calldata _reason)
+        external
+        onlyOwner
+        validAddress(_user)
     {
-        require(_newOwner != owner, "New owner cannot be the current owner");
-        
-        address previousOwner = owner;
-        owner = _newOwner;
-        
-        // Add new owner as authorized scorer
-        authorizedScorers[_newOwner] = true;
-        
-        emit OwnershipTransferred(previousOwner, _newOwner);
-        emit AuthorizedScorerAdded(_newOwner);
+        fraudFlag[_user] = _flag;
+        fraudHistory[_user].push(
+            FraudEvent({ flagged: _flag, timestamp: block.timestamp, actor: msg.sender, reason: _reason })
+        );
+        emit FraudFlagSet(_user, _flag, block.timestamp, msg.sender, _reason);
     }
-    
-    /**
-     * @dev Batch set credit scores for multiple users
-     * @param _users Array of user addresses
-     * @param _scores Array of credit scores corresponding to users
-     */
-    function batchSetCreditScores(address[] memory _users, uint256[] memory _scores) 
-        public 
-        onlyAuthorizedScorer 
+
+    function isFraud(address _user) external view returns (bool) {
+        return fraudFlag[_user];
+    }
+
+    function getFraudEventsCount(address _user) external view returns (uint256) {
+        return fraudHistory[_user].length;
+    }
+
+    function getFraudEvent(address _user, uint256 _index)
+        external
+        view
+        returns (bool flagged, uint256 timestamp, address actor, string memory reason)
     {
-        require(_users.length == _scores.length, "Arrays must have the same length");
-        require(_users.length > 0, "Arrays cannot be empty");
-        require(_users.length <= 100, "Batch size cannot exceed 100"); // Gas limit protection
-        
-        for (uint256 i = 0; i < _users.length; i++) {
-            require(_users[i] != address(0), "Invalid address in batch");
-            require(_scores[i] >= 300 && _scores[i] <= 850, "Invalid score in batch");
-            
-            creditScores[_users[i]] = _scores[i];
-            lastUpdated[_users[i]] = block.timestamp;
-            
-            emit CreditScoreSet(_users[i], _scores[i], block.timestamp, msg.sender);
+        require(_index < fraudHistory[_user].length, "Index out of bounds");
+        FraudEvent storage ev = fraudHistory[_user][_index];
+        return (ev.flagged, ev.timestamp, ev.actor, ev.reason);
+    }
+
+    // ---------------------------------------------------------------------
+    // Batch updates (gas-capped)
+    // ---------------------------------------------------------------------
+    function batchUpdateScores(address[] calldata _users, uint256[] calldata _scores, string[] calldata _reasons)
+        external
+        onlyAuthorizedUpdater
+    {
+        uint256 n = _users.length;
+        require(n == _scores.length && n == _reasons.length, "Array length mismatch");
+        require(n > 0 && n <= 100, "Invalid batch size");
+        for (uint256 i = 0; i < n; i++) {
+            require(_users[i] != address(0), "Zero address");
+            require(_scores[i] >= 300 && _scores[i] <= 850, "Score out of range");
+            updateScore(_users[i], _scores[i], _reasons[i]);
         }
     }
-    
-    /**
-     * @dev Get the contract version
-     * @return The version string of the contract
-     */
-    function getVersion() public pure returns (string memory) {
-        return "1.0.0";
-    }
-    
-    /**
-     * @dev Get contract information
-     * @return contractOwner The owner of the contract
-     * @return version The version of the contract
-     * @return deploymentTime The timestamp when the contract was deployed
-     */
-    function getContractInfo() 
-        public 
-        view 
-        returns (address contractOwner, string memory version, uint256 deploymentTime) 
-    {
-        // Note: We can't get the actual deployment time without storing it in constructor
-        // This is a simplified version
-        return (owner, "1.0.0", block.timestamp);
-    }
-    
-    /**
-     * @dev Emergency pause functionality (for future upgrades)
-     * This can be implemented with OpenZeppelin's Pausable contract
-     */
+
+    // ---------------------------------------------------------------------
+    // Minimal pause switches (optional extension points for future OZ Pausable)
+    // ---------------------------------------------------------------------
     bool public paused = false;
-    
+
     modifier whenNotPaused() {
-        require(!paused, "Contract is paused");
+        require(!paused, "Paused");
         _;
     }
-    
-    function pause() public onlyOwner {
-        paused = true;
-    }
-    
-    function unpause() public onlyOwner {
-        paused = false;
-    }
+
+    function pause() public onlyOwner { paused = true; }
+    function unpause() public onlyOwner { paused = false; }
 }
 
 /**
@@ -268,52 +354,30 @@ contract CreditScore {
  * @dev Factory contract to deploy multiple CreditScore contracts
  */
 contract CreditScoreFactory {
-    
     address[] public deployedContracts;
     mapping(address => address[]) public userContracts;
-    
+
     event ContractDeployed(address indexed contractAddress, address indexed deployer);
-    
-    /**
-     * @dev Deploy a new CreditScore contract
-     * @return The address of the newly deployed contract
-     */
+
     function deployCreditScoreContract() public returns (address) {
         CreditScore newContract = new CreditScore();
         address contractAddress = address(newContract);
-        
         deployedContracts.push(contractAddress);
         userContracts[msg.sender].push(contractAddress);
-        
         // Transfer ownership to the deployer
         newContract.transferOwnership(msg.sender);
-        
         emit ContractDeployed(contractAddress, msg.sender);
-        
         return contractAddress;
     }
-    
-    /**
-     * @dev Get all deployed contracts
-     * @return Array of all deployed contract addresses
-     */
+
     function getDeployedContracts() public view returns (address[] memory) {
         return deployedContracts;
     }
-    
-    /**
-     * @dev Get contracts deployed by a specific user
-     * @param _user The user address
-     * @return Array of contract addresses deployed by the user
-     */
+
     function getUserContracts(address _user) public view returns (address[] memory) {
         return userContracts[_user];
     }
-    
-    /**
-     * @dev Get the total number of deployed contracts
-     * @return The count of deployed contracts
-     */
+
     function getContractCount() public view returns (uint256) {
         return deployedContracts.length;
     }
