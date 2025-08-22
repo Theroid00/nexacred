@@ -5,6 +5,11 @@ import re
 from bson import ObjectId
 from datetime import datetime
 import traceback
+import sys
+import os
+
+# Add ML path to sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ml'))
 
 # Import our configuration
 from config import (
@@ -14,11 +19,35 @@ from config import (
     create_credit_score_document
 )
 
+# Import ML components
+try:
+    from granite_agents import IBMGraniteFinancialAI
+    from financial_assistant import NexaCredFinancialAssistant
+    ML_AVAILABLE = True
+    print("✅ ML components loaded successfully")
+except ImportError as e:
+    ML_AVAILABLE = False
+    print(f"⚠️ ML components not available: {e}")
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Configuration
 app.config['SECRET_KEY'] = 'nexacred_secret_key_2024'
+
+# Initialize ML systems
+if ML_AVAILABLE:
+    try:
+        granite_ai = IBMGraniteFinancialAI()
+        financial_assistant = NexaCredFinancialAssistant()
+        print("🧠 AI systems initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize AI systems: {e}")
+        granite_ai = None
+        financial_assistant = None
+else:
+    granite_ai = None
+    financial_assistant = None
 
 def validate_email(email):
     """Validate email format"""
@@ -376,6 +405,172 @@ def calculate_credit_score(user_id):
         return jsonify({
             'error': True,
             'message': 'Internal server error'
+        }), 500
+
+@app.route('/api/ml/status', methods=['GET'])
+def ml_status():
+    """Get ML system status"""
+    if not ML_AVAILABLE:
+        return jsonify({
+            'ml_available': False,
+            'message': 'ML components not loaded'
+        })
+
+    try:
+        status = {
+            'ml_available': True,
+            'granite_status': granite_ai.get_model_status() if granite_ai else None,
+            'financial_assistant_available': financial_assistant is not None,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({
+            'error': True,
+            'message': f'Failed to get ML status: {str(e)}'
+        }), 500
+
+@app.route('/api/credit-score', methods=['POST'])
+def calculate_credit_score_ml():
+    """Calculate credit score using AI system"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+
+        user_id = data.get('user_id')
+        customer_data = data.get('customer_data', {})
+
+        if not user_id:
+            return jsonify({'error': True, 'message': 'User ID required'}), 400
+
+        if not ML_AVAILABLE or not granite_ai:
+            # Fallback scoring
+            score = 650  # Default score
+            return jsonify({
+                'success': True,
+                'credit_score': score,
+                'category': 'Good',
+                'probability_of_default': 0.05,
+                'risk_level': 'Medium',
+                'explanation': 'Fallback scoring - ML system not available',
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+        # Use Granite AI for credit analysis
+        credit_result = granite_ai.analyze_credit_risk(customer_data)
+
+        # Store result in database
+        credit_scores_collection = get_credit_scores_collection()
+        if credit_scores_collection:
+            score_document = create_credit_score_document(
+                user_id=user_id,
+                credit_score=credit_result.credit_score,
+                factors=credit_result.key_factors,
+                recommendations=credit_result.recommendations
+            )
+            credit_scores_collection.insert_one(score_document)
+
+        return jsonify({
+            'success': True,
+            'credit_score': credit_result.credit_score,
+            'category': credit_result.risk_level,
+            'probability_of_default': credit_result.probability_of_default,
+            'risk_level': credit_result.risk_level,
+            'key_factors': credit_result.key_factors,
+            'recommendations': credit_result.recommendations,
+            'explanation': credit_result.explanation,
+            'confidence': credit_result.confidence,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
+    except Exception as e:
+        print(f"Credit score calculation error: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': True,
+            'message': 'Failed to calculate credit score'
+        }), 500
+
+@app.route('/api/loan-recommendation', methods=['POST'])
+def get_loan_recommendation():
+    """Get personalized loan recommendation"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+
+        customer_data = data.get('customer_data', {})
+        loan_type = data.get('loan_type', 'personal')
+
+        if not ML_AVAILABLE or not granite_ai:
+            # Fallback recommendation
+            return jsonify({
+                'success': True,
+                'eligible': True,
+                'loan_type': loan_type,
+                'recommended_amount': 500000,
+                'interest_rate': 12.0,
+                'max_tenure_months': 60,
+                'estimated_emi': 11122.22,
+                'approval_probability': 0.75,
+                'explanation': 'Fallback recommendation - ML system not available',
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+        # Use Granite AI for loan recommendation
+        loan_result = granite_ai.generate_loan_recommendation(customer_data, loan_type)
+        loan_result['success'] = True
+        loan_result['timestamp'] = datetime.utcnow().isoformat()
+
+        return jsonify(loan_result)
+
+    except Exception as e:
+        print(f"Loan recommendation error: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': True,
+            'message': 'Failed to generate loan recommendation'
+        }), 500
+
+@app.route('/api/fraud-check', methods=['POST'])
+def check_fraud():
+    """Check transaction for fraud indicators"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+
+        transaction_data = data.get('transaction_data', {})
+
+        if not ML_AVAILABLE or not granite_ai:
+            # Fallback fraud check
+            return jsonify({
+                'success': True,
+                'fraud_probability': 0.05,
+                'risk_indicators': [],
+                'recommended_action': 'Allow transaction',
+                'confidence': 0.70,
+                'analysis': 'Fallback analysis - ML system not available',
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+        # Use Granite AI for fraud detection
+        fraud_result = granite_ai.detect_fraud(transaction_data)
+        fraud_result['success'] = True
+        fraud_result['timestamp'] = datetime.utcnow().isoformat()
+
+        return jsonify(fraud_result)
+
+    except Exception as e:
+        print(f"Fraud check error: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': True,
+            'message': 'Failed to check for fraud'
         }), 500
 
 @app.errorhandler(404)

@@ -1,2 +1,0 @@
-# This is a placeholder for the trained ML model
-# Run 'python train_model.py' after installing requirements to generate the actual model

@@ -1,6 +1,0 @@
-react
-react-dom
-lucide-react
-tailwindcss
-postcss
-autoprefixer
