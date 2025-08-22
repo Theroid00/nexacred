@@ -114,7 +114,7 @@ class CreditScoreModel:
         df['credit_utilization_ratio'] = np.clip(np.abs(df['credit_utilization_ratio']) * 0.5, 0, 1)
         df['length_of_credit_history_months'] = np.clip(np.abs(df['length_of_credit_history_months']) * 50, 6, 600)
         df['annual_income'] = np.clip(np.abs(df['annual_income']) * 30000 + 25000, 15000, 300000)
-        df['age'] = np.clip(np.abs(df['age']) * 10 + 25, 18, 80)
+        df['age'] = np.clip(np.abs(df['age']) * 10 + 23, 18, 80)
         
         print("Synthetic data generation completed!")
         print(f"Feature columns: {list(df.columns)}")
