@@ -1,0 +1,6 @@
+mongodb
+@types/node 
+express
+mongoose 
+dotenv 
+cors

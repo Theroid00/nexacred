@@ -1,0 +1,15 @@
+export default function Header() {
+  return (
+    <header className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-black/40 bg-black/30 border-b border-white/10">
+      <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+        <div className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">NexaCred</div>
+        <nav className="hidden md:flex gap-6 text-gray-300">
+          <a href="#features" className="hover:text-white">Features</a>
+          <a href="#how" className="hover:text-white">How it works</a>
+          <a href="#why" className="hover:text-white">Why NexaCred</a>
+          <a href="#cta" className="hover:text-white">Get started</a>
+        </nav>
+      </div>
+    </header>
+  );
+}
