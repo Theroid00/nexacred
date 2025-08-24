@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 
 class Config:
     # MongoDB configuration
@@ -48,7 +48,8 @@ class DatabaseConnection:
                 
                 # Create index on user_id for credit scores
                 self._db[Config.CREDIT_SCORES_COLLECTION].create_index("user_id")
-                
+                self._db[Config.CREDIT_SCORES_COLLECTION].create_index("calculated_at")
+
                 print("Database indexes created successfully!")
             except Exception as e:
                 print(f"Error creating indexes: {e}")
@@ -88,8 +89,8 @@ def create_user_document(username, email, password_hash):
         'username': username,
         'email': email,
         'password_hash': password_hash,
-        'created_at': datetime.utcnow(),
-        'updated_at': datetime.utcnow(),
+        'created_at': datetime.now(UTC),
+        'updated_at': datetime.now(UTC),
         'is_active': True,
         'credit_score': None,
         'profile': {
@@ -101,19 +102,15 @@ def create_user_document(username, email, password_hash):
         }
     }
 
-def create_credit_score_document(user_id, score, model_version='v1.0'):
+def create_credit_score_document(user_id, credit_score, model_version='traditional-ml', factors=None, recommendations=None, pd=None, risk_level=None):
     """Create a credit score document structure"""
     return {
         'user_id': user_id,
-        'credit_score': score,
+        'credit_score': credit_score,
         'model_version': model_version,
-        'calculated_at': datetime.utcnow(),
-        'factors': {
-            'payment_history': None,
-            'credit_utilization': None,
-            'length_of_credit_history': None,
-            'types_of_credit': None,
-            'new_credit_inquiries': None
-        },
-        'risk_assessment': 'pending'
+        'calculated_at': datetime.now(UTC),
+        'factors': factors or [],
+        'recommendations': recommendations or [],
+        'probability_of_default': pd,
+        'risk_level': risk_level
     }
