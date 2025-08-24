@@ -1,10 +1,10 @@
 # Indian Financial Regulation RAG Chatbot
 
-An AI-powered chatbot that uses IBM Granite 3.0 8B Instruct model with Retrieval-Augmented Generation (RAG) to answer questions about Indian financial regulations, loans, credit, debit cards, and peer-to-peer transactions.
+An AI-powered chatbot that uses IBM Granite 3.1 8B Instruct model with Retrieval-Augmented Generation (RAG) to answer questions about Indian financial regulations, loans, credit, debit cards, and peer-to-peer transactions.
 
 ## 🎯 Features
 
-- **🤖 IBM Granite 3.0 8B Model**: State-of-the-art language model for response generation
+- **🤖 IBM Granite 3.1 8B Model**: State-of-the-art language model for response generation
 - **🔍 RAG Architecture**: Retrieves relevant context from knowledge base before generation
 - **🏦 Indian Financial Focus**: Specialized for Indian banking, lending, and payment regulations
 - **📚 MongoDB Integration**: Designed for MongoDB Atlas Vector Search (stub included)
@@ -20,7 +20,7 @@ Query → Embedding → Retrieval → Context + Prompt → Generation → Respon
 ```
 
 **Components:**
-- **Models**: IBM Granite 3.0 8B + Sentence Transformers for embeddings
+- **Models**: IBM Granite 3.1 8B + Sentence Transformers for embeddings
 - **Retrieval**: MongoDB Atlas Vector Search (with dummy fallback)
 - **Pipeline**: RAG orchestration with context management
 - **API**: FastAPI web service
@@ -32,18 +32,22 @@ Query → Embedding → Retrieval → Context + Prompt → Generation → Respon
 
 ```bash
 pip install torch transformers sentence-transformers
-pip install fastapi uvicorn  # For web API
+pip install fastapi uvicorn pydantic-settings
+pip install huggingface-hub
 pip install pymongo  # For MongoDB (when implementing)
 ```
 
 ### 1. Basic Usage (CLI)
 
 ```bash
-cd ml/rag_chatbot
+# Interactive chat mode
 python -m rag_chatbot
 
-# Or direct CLI
+# Single query mode
 python cli.py --query "What are RBI guidelines for personal loans?"
+
+# Health check
+python cli.py --health
 ```
 
 ### 2. Web API
@@ -104,7 +108,7 @@ Configuration via environment variables or `config.py`:
 
 ```python
 class Config:
-    granite_model_id: str = "ibm-granite/granite-3.0-8b-instruct"
+    granite_model_id: str = "ibm-granite/granite-3.1-8b-instruct"
     embedding_model_id: str = "sentence-transformers/all-MiniLM-L6-v2"
     
     # Generation parameters
