@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import sys
 import os
-sys.path.append('ml')
+sys.path.append('../ml')
 
 def quick_test():
     print("🧪 Quick System Test - Hybrid Credit Scoring")
@@ -19,8 +19,8 @@ def quick_test():
     # Test 1: Check if datasets load
     print("\n📊 Testing dataset loading...")
     try:
-        train = pd.read_csv('datasets/train.csv')
-        test = pd.read_csv('datasets/test.csv')
+        train = pd.read_csv('../datasets/train.csv')
+        test = pd.read_csv('../datasets/test.csv')
         print(f"✅ Train dataset: {train.shape}")
         print(f"✅ Test dataset: {test.shape}")
         print(f"✅ Target distribution: {train['Credit_Score'].value_counts().to_dict()}")

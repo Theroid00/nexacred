@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-sys.path.append('ml')
+sys.path.append('../ml')
 
 from enhanced_preprocessor import HybridDataPreprocessor
 from hybrid_credit_system import HybridCreditScoringSystem
