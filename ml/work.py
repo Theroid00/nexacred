@@ -145,7 +145,7 @@ try:
     collection = db[COLLECTION_NAME]
     print("Successfully connected to MongoDB")
 
-    # ✅ Debugging line: list databases to confirm connection
+    #  Debugging line: list databases to confirm connection
     print("Databases in your cluster:", client.list_database_names())
 
 except Exception as e:
