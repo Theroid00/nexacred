@@ -67,6 +67,7 @@ def extract_and_chunk_text(pdf_path):
         return []
 
 # --- 4. EMBEDDING AND STORAGE ---
+# --- 4. EMBEDDING AND STORAGE ---
 def embed_and_store(chunks):
     """Generates embeddings and stores the data in MongoDB Atlas."""
     if not chunks:
@@ -89,9 +90,18 @@ def embed_and_store(chunks):
         # Only attempt to store in MongoDB if client connection was successful
         if client is not None:
             try:
-                print("Inserting documents into MongoDB...")
-                collection.insert_many(chunks)
-                print(f"Successfully inserted {len(chunks)} documents into the '{COLLECTION_NAME}' collection.")
+                # --- Prevent duplicates ---
+                for chunk in chunks:
+                    # Check if the same text chunk from the same document & page already exists
+                    if collection.find_one({
+                        "text_chunk": chunk["text_chunk"],
+                        "source_document": chunk["source_document"],
+                        "page_number": chunk["page_number"]
+                    }):
+                        print(f"Skipping duplicate chunk from {chunk['source_document']} (page {chunk['page_number']})")
+                    else:
+                        collection.insert_one(chunk)
+
             except Exception as e:
                 print(f"Error inserting documents into MongoDB: {e}")
                 print("Data was processed but not stored. Consider saving to a file.")
@@ -104,6 +114,7 @@ def embed_and_store(chunks):
     except Exception as e:
         print(f"Error during embedding generation: {e}")
         print("Make sure the sentence-transformers package is properly installed.")
+
 
 # --- 5. RUN THE PIPELINE ---
 if __name__ == "__main__":
