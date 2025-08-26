@@ -2,7 +2,7 @@ import 'dotenv/config';
 import connectDB from "./config/db.js";
 import express from "express";
 import userRoutes from "./routers/userRoutes.js";
-import creditProfileRoutes from './modals/creditProfileRoutes.js';
+import creditProfileRoutes from './routers/creditProfileRoutes.js';
 //import guidelineRoutes from "./routes/guidelineRoutes.js";
 
 connectDB();

@@ -1,5 +1,5 @@
 // /controllers/creditProfileController.js
-import CreditProfile from "../models/creditProfile.js";
+import CreditProfile from "../modals/CreditProfile.js";
 
 // ✅ Create new credit profile
 export const createCreditProfile = async (req, res) => {

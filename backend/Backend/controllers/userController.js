@@ -1,5 +1,5 @@
 // /controllers/userController.js
-import User from "../models/user.js";
+import User from '../modals/User.js';
 import bcrypt from "bcryptjs";  
 
 // 1️⃣ Register a new user

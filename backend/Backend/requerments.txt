@@ -4,3 +4,4 @@ express
 mongoose 
 dotenv 
 cors
+bcryptjs
