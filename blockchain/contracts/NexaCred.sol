@@ -1,48 +1,78 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-
 /**
- * @title NexaCred Peer-to-Peer Lending Contract
- * @dev Smart contract for decentralized peer-to-peer lending with credit scoring integration
+ * @title NexaCred Lending Platform
+ * @dev Peer-to-peer lending platform with credit score integration
+ * 
+ * How it works:
+ * 1. Borrowers request loans with their credit scores
+ * 2. Lenders can fund loans that meet their criteria
+ * 3. Borrowers repay loans over time
+ * 4. Platform tracks reputation and handles defaults
+ * 
+ * Backend Integration Points:
+ * - requestLoan() when user submits loan application
+ * - fundLoan() when lender approves a loan
+ * - repayLoan() for processing payments
+ * - updateUserCreditScore() from ML service
+ * 
+ * Frontend Integration Points:
+ * - getActiveLoans() to display available loans
+ * - getUserProfile() to show user statistics
+ * - Event listeners for real-time updates
  */
-contract NexaCred is ReentrancyGuard, Ownable, Pausable {
+contract NexaCred {
+    // Contract administration
+    address public owner;
+    bool private reentrancyLock;
+    bool public emergencyPause;
     
-    // Structs
-    struct LoanRequest {
+    // Platform settings
+    uint256 public platformFeeRate = 250; // 2.5% (250 basis points)
+    uint256 public constant MAX_INTEREST_RATE = 3000; // 30% annual max
+    uint256 public constant MIN_LOAN_AMOUNT = 0.01 ether;
+    uint256 public constant MAX_LOAN_AMOUNT = 100 ether;
+    
+    // Loan statuses
+    enum LoanStatus { 
+        PENDING,    // Waiting for lender
+        FUNDED,     // Money transferred, repayment in progress
+        REPAID,     // Fully repaid
+        DEFAULTED,  // Failed to repay on time
+        CANCELLED   // Cancelled by borrower
+    }
+    
+    // Main loan data structure
+    struct Loan {
         uint256 id;
         address borrower;
+        address lender;
         uint256 amount;
-        uint256 interestRate; // Annual interest rate in basis points (100 = 1%)
-        uint256 duration; // Loan duration in seconds
+        uint256 interestRate;
+        uint256 durationDays;
         uint256 creditScore;
-        uint256 riskScore; // Risk score from ML model (0-1000, where 1000 = 100% risk)
         string purpose;
         LoanStatus status;
         uint256 createdAt;
         uint256 fundedAt;
         uint256 dueDate;
-        address lender;
-        uint256 totalRepaymentAmount;
+        uint256 totalOwed;
         uint256 amountRepaid;
-        uint256 lastRepaymentDate;
     }
     
+    // Lending offer from investors
     struct LendingOffer {
         uint256 id;
         address lender;
         uint256 amount;
         uint256 maxInterestRate;
         uint256 minCreditScore;
-        uint256 maxRiskScore;
-        uint256 maxDuration;
         bool active;
         uint256 createdAt;
     }
     
+    // User statistics and reputation
     struct UserProfile {
         uint256 creditScore;
         uint256 totalBorrowed;
@@ -50,343 +80,234 @@ contract NexaCred is ReentrancyGuard, Ownable, Pausable {
         uint256 successfulLoans;
         uint256 defaultedLoans;
         bool kycVerified;
-        uint256 reputationScore;
+        uint256 reputation;
     }
     
-    enum LoanStatus {
-        PENDING,
-        FUNDED,
-        REPAID,
-        DEFAULTED,
-        CANCELLED
-    }
+    // Contract state
+    uint256 private nextLoanId = 1;
+    uint256 private nextOfferId = 1;
     
-    // State variables
-    uint256 private _loanIdCounter;
-    uint256 private _offerIdCounter;
-    uint256 public platformFeeRate = 250; // 2.5% in basis points
-    uint256 public constant MAX_INTEREST_RATE = 3000; // 30% max annual interest
-    uint256 public constant MIN_LOAN_AMOUNT = 0.01 ether;
-    uint256 public constant MAX_LOAN_AMOUNT = 100 ether;
-    
-    mapping(uint256 => LoanRequest) public loans;
+    mapping(uint256 => Loan) public loans;
     mapping(uint256 => LendingOffer) public offers;
     mapping(address => UserProfile) public userProfiles;
-    mapping(address => uint256[]) public userLoans; // borrower -> loan IDs
-    mapping(address => uint256[]) public userLendings; // lender -> loan IDs
-    mapping(address => bool) public authorizedOracles; // For credit score updates
+    mapping(address => uint256[]) public userLoanIds;
+    mapping(address => uint256[]) public userLendingIds;
+    mapping(address => bool) public creditOracles;
     
     uint256[] public activeLoanIds;
     uint256[] public activeOfferIds;
     
-    // Events
-    event LoanRequested(
-        uint256 indexed loanId,
-        address indexed borrower,
-        uint256 amount,
-        uint256 interestRate,
-        uint256 duration,
-        string purpose
-    );
+    // Events for backend/frontend integration
+    event LoanRequested(uint256 indexed loanId, address indexed borrower, uint256 amount, string purpose);
+    event LoanFunded(uint256 indexed loanId, address indexed lender, address indexed borrower, uint256 amount);
+    event RepaymentMade(uint256 indexed loanId, uint256 amount, uint256 remaining);
+    event LoanCompleted(uint256 indexed loanId, address indexed borrower);
+    event LoanDefaulted(uint256 indexed loanId, uint256 lossAmount);
+    event OfferCreated(uint256 indexed offerId, address indexed lender, uint256 amount);
+    event CreditScoreUpdated(address indexed user, uint256 newScore);
     
-    event LoanFunded(
-        uint256 indexed loanId,
-        address indexed lender,
-        address indexed borrower,
-        uint256 amount
-    );
-    
-    event LoanRepaid(
-        uint256 indexed loanId,
-        address indexed borrower,
-        uint256 amount,
-        uint256 totalRepaid
-    );
-    
-    event LoanDefaulted(
-        uint256 indexed loanId,
-        address indexed borrower,
-        uint256 amountLost
-    );
-    
-    event OfferCreated(
-        uint256 indexed offerId,
-        address indexed lender,
-        uint256 amount,
-        uint256 maxInterestRate
-    );
-    
-    event CreditScoreUpdated(
-        address indexed user,
-        uint256 oldScore,
-        uint256 newScore
-    );
-    
-    // Modifiers
-    modifier onlyAuthorizedOracle() {
-        require(authorizedOracles[msg.sender], "Not authorized oracle");
+    // Access control modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Owner access required");
         _;
     }
     
-    modifier validLoan(uint256 loanId) {
-        require(loanId > 0 && loanId <= _loanIdCounter, "Invalid loan ID");
+    modifier onlyOracle() {
+        require(creditOracles[msg.sender] || msg.sender == owner, "Oracle access required");
         _;
     }
     
-    modifier validOffer(uint256 offerId) {
-        require(offerId > 0 && offerId <= _offerIdCounter, "Invalid offer ID");
+    modifier noReentrancy() {
+        require(!reentrancyLock, "Reentrancy blocked");
+        reentrancyLock = true;
+        _;
+        reentrancyLock = false;
+    }
+    
+    modifier whenActive() {
+        require(!emergencyPause, "Platform is paused");
+        _;
+    }
+    
+    modifier validLoanId(uint256 loanId) {
+        require(loanId > 0 && loanId < nextLoanId, "Invalid loan ID");
         _;
     }
     
     constructor() {
-        // Initialize platform
-        _loanIdCounter = 0;
-        _offerIdCounter = 0;
+        owner = msg.sender;
+        creditOracles[msg.sender] = true;
     }
     
+    // Core lending functionality
+    
     /**
-     * @dev Request a loan
+     * Submit a loan request
+     * Called by: Backend API when user applies for loan
      */
     function requestLoan(
         uint256 amount,
         uint256 interestRate,
-        uint256 duration,
-        uint256 creditScore,
-        uint256 riskScore,
+        uint256 durationDays,
         string calldata purpose
-    ) external whenNotPaused nonReentrant {
+    ) external whenActive returns (uint256 loanId) {
         require(amount >= MIN_LOAN_AMOUNT && amount <= MAX_LOAN_AMOUNT, "Invalid loan amount");
         require(interestRate <= MAX_INTEREST_RATE, "Interest rate too high");
-        require(duration >= 1 days && duration <= 365 days, "Invalid duration");
-        require(creditScore >= 300 && creditScore <= 850, "Invalid credit score");
-        require(riskScore <= 1000, "Invalid risk score");
-        require(bytes(purpose).length > 0, "Purpose required");
+        require(durationDays >= 1 && durationDays <= 365, "Invalid duration");
+        require(bytes(purpose).length > 0, "Loan purpose required");
         
-        _loanIdCounter++;
-        uint256 loanId = _loanIdCounter;
-        
-        // Calculate total repayment amount
+        loanId = nextLoanId++;
+        uint256 duration = durationDays * 1 days;
         uint256 interest = (amount * interestRate * duration) / (365 days * 10000);
-        uint256 totalRepayment = amount + interest;
         
-        loans[loanId] = LoanRequest({
+        loans[loanId] = Loan({
             id: loanId,
             borrower: msg.sender,
+            lender: address(0),
             amount: amount,
             interestRate: interestRate,
-            duration: duration,
-            creditScore: creditScore,
-            riskScore: riskScore,
+            durationDays: durationDays,
+            creditScore: userProfiles[msg.sender].creditScore,
             purpose: purpose,
             status: LoanStatus.PENDING,
             createdAt: block.timestamp,
             fundedAt: 0,
             dueDate: 0,
-            lender: address(0),
-            totalRepaymentAmount: totalRepayment,
-            amountRepaid: 0,
-            lastRepaymentDate: 0
+            totalOwed: amount + interest,
+            amountRepaid: 0
         });
         
-        userLoans[msg.sender].push(loanId);
+        userLoanIds[msg.sender].push(loanId);
         activeLoanIds.push(loanId);
         
-        // Update user profile
-        userProfiles[msg.sender].creditScore = creditScore;
-        
-        emit LoanRequested(loanId, msg.sender, amount, interestRate, duration, purpose);
+        emit LoanRequested(loanId, msg.sender, amount, purpose);
     }
     
     /**
-     * @dev Fund a loan
+     * Fund a loan request
+     * Called by: Backend API when lender approves loan
      */
-    function fundLoan(uint256 loanId) 
-        external 
-        payable 
-        whenNotPaused 
-        nonReentrant 
-        validLoan(loanId) 
-    {
-        LoanRequest storage loan = loans[loanId];
-        require(loan.status == LoanStatus.PENDING, "Loan not available for funding");
+    function fundLoan(uint256 loanId) external payable whenActive noReentrancy validLoanId(loanId) {
+        Loan storage loan = loans[loanId];
+        require(loan.status == LoanStatus.PENDING, "Loan not available");
         require(loan.borrower != msg.sender, "Cannot fund your own loan");
         require(msg.value == loan.amount, "Incorrect funding amount");
         
-        // Transfer funds to borrower
+        // Calculate fees
         uint256 platformFee = (loan.amount * platformFeeRate) / 10000;
-        uint256 borrowerAmount = loan.amount - platformFee;
-        
-        payable(loan.borrower).transfer(borrowerAmount);
+        uint256 borrowerReceives = loan.amount - platformFee;
         
         // Update loan details
-        loan.status = LoanStatus.FUNDED;
         loan.lender = msg.sender;
+        loan.status = LoanStatus.FUNDED;
         loan.fundedAt = block.timestamp;
-        loan.dueDate = block.timestamp + loan.duration;
+        loan.dueDate = block.timestamp + (loan.durationDays * 1 days);
         
         // Update user profiles
         userProfiles[msg.sender].totalLent += loan.amount;
         userProfiles[loan.borrower].totalBorrowed += loan.amount;
-        userLendings[msg.sender].push(loanId);
+        userLendingIds[msg.sender].push(loanId);
+        
+        // Transfer funds to borrower
+        payable(loan.borrower).transfer(borrowerReceives);
         
         emit LoanFunded(loanId, msg.sender, loan.borrower, loan.amount);
     }
     
     /**
-     * @dev Repay a loan (full or partial)
+     * Make loan repayment
+     * Called by: Backend API when borrower makes payment
      */
-    function repayLoan(uint256 loanId) 
-        external 
-        payable 
-        whenNotPaused 
-        nonReentrant 
-        validLoan(loanId) 
-    {
-        LoanRequest storage loan = loans[loanId];
+    function repayLoan(uint256 loanId) external payable whenActive noReentrancy validLoanId(loanId) {
+        Loan storage loan = loans[loanId];
         require(loan.status == LoanStatus.FUNDED, "Loan not active");
         require(loan.borrower == msg.sender, "Only borrower can repay");
-        require(msg.value > 0, "Repayment amount must be positive");
+        require(msg.value > 0, "Payment amount required");
         
-        uint256 remainingAmount = loan.totalRepaymentAmount - loan.amountRepaid;
-        require(msg.value <= remainingAmount, "Overpayment not allowed");
+        uint256 remaining = loan.totalOwed - loan.amountRepaid;
+        require(msg.value <= remaining, "Payment exceeds owed amount");
         
         loan.amountRepaid += msg.value;
-        loan.lastRepaymentDate = block.timestamp;
         
-        // Transfer to lender
-        payable(loan.lender).transfer(msg.value);
-        
-        if (loan.amountRepaid >= loan.totalRepaymentAmount) {
+        // Check if loan is fully repaid
+        if (loan.amountRepaid >= loan.totalOwed) {
             loan.status = LoanStatus.REPAID;
             userProfiles[loan.borrower].successfulLoans++;
-            userProfiles[loan.borrower].reputationScore += 10;
-            userProfiles[loan.lender].reputationScore += 5;
+            userProfiles[loan.borrower].reputation += 10;
+            userProfiles[loan.lender].reputation += 5;
+            emit LoanCompleted(loanId, loan.borrower);
         }
         
-        emit LoanRepaid(loanId, msg.sender, msg.value, loan.amountRepaid);
+        // Transfer payment to lender
+        payable(loan.lender).transfer(msg.value);
+        
+        emit RepaymentMade(loanId, msg.value, remaining - msg.value);
     }
     
     /**
-     * @dev Mark loan as defaulted (can be called by lender after due date)
+     * Mark loan as defaulted
+     * Called by: Lender after due date passes
      */
-    function markAsDefaulted(uint256 loanId) 
-        external 
-        whenNotPaused 
-        validLoan(loanId) 
-    {
-        LoanRequest storage loan = loans[loanId];
+    function markDefault(uint256 loanId) external whenActive validLoanId(loanId) {
+        Loan storage loan = loans[loanId];
         require(loan.status == LoanStatus.FUNDED, "Loan not active");
-        require(loan.lender == msg.sender, "Only lender can mark as defaulted");
-        require(block.timestamp > loan.dueDate, "Loan not yet due");
+        require(loan.lender == msg.sender, "Only lender can mark default");
+        require(block.timestamp > loan.dueDate, "Loan not overdue yet");
         
         loan.status = LoanStatus.DEFAULTED;
         userProfiles[loan.borrower].defaultedLoans++;
-        userProfiles[loan.borrower].reputationScore = userProfiles[loan.borrower].reputationScore > 20 
-            ? userProfiles[loan.borrower].reputationScore - 20 : 0;
         
-        uint256 amountLost = loan.totalRepaymentAmount - loan.amountRepaid;
-        emit LoanDefaulted(loanId, loan.borrower, amountLost);
+        // Reduce borrower reputation
+        if (userProfiles[loan.borrower].reputation >= 20) {
+            userProfiles[loan.borrower].reputation -= 20;
+        } else {
+            userProfiles[loan.borrower].reputation = 0;
+        }
+        
+        uint256 lossAmount = loan.totalOwed - loan.amountRepaid;
+        emit LoanDefaulted(loanId, lossAmount);
     }
     
-    /**
-     * @dev Create a lending offer
-     */
-    function createLendingOffer(
-        uint256 amount,
-        uint256 maxInterestRate,
-        uint256 minCreditScore,
-        uint256 maxRiskScore,
-        uint256 maxDuration
-    ) external whenNotPaused {
-        require(amount >= MIN_LOAN_AMOUNT, "Minimum offer amount not met");
-        require(maxInterestRate <= MAX_INTEREST_RATE, "Interest rate too high");
-        require(minCreditScore >= 300 && minCreditScore <= 850, "Invalid credit score range");
-        require(maxRiskScore <= 1000, "Invalid risk score");
-        
-        _offerIdCounter++;
-        uint256 offerId = _offerIdCounter;
-        
-        offers[offerId] = LendingOffer({
-            id: offerId,
-            lender: msg.sender,
-            amount: amount,
-            maxInterestRate: maxInterestRate,
-            minCreditScore: minCreditScore,
-            maxRiskScore: maxRiskScore,
-            maxDuration: maxDuration,
-            active: true,
-            createdAt: block.timestamp
-        });
-        
-        activeOfferIds.push(offerId);
-        
-        emit OfferCreated(offerId, msg.sender, amount, maxInterestRate);
-    }
+    // Credit score management (for ML service integration)
     
     /**
-     * @dev Update credit score (only by authorized oracles)
+     * Update user's credit score
+     * Called by: Backend ML service after score calculation
      */
-    function updateCreditScore(address user, uint256 newScore) 
-        external 
-        onlyAuthorizedOracle 
-    {
-        require(newScore >= 300 && newScore <= 850, "Invalid credit score");
-        
-        uint256 oldScore = userProfiles[user].creditScore;
+    function updateUserCreditScore(address user, uint256 newScore) external onlyOracle {
+        require(newScore >= 300 && newScore <= 850, "Credit score must be 300-850");
         userProfiles[user].creditScore = newScore;
-        
-        emit CreditScoreUpdated(user, oldScore, newScore);
+        emit CreditScoreUpdated(user, newScore);
     }
     
-    /**
-     * @dev Verify KYC status (only owner)
-     */
-    function verifyKYC(address user, bool verified) external onlyOwner {
-        userProfiles[user].kycVerified = verified;
+    // Administrative functions
+    
+    function setCreditOracle(address oracle, bool authorized) external onlyOwner {
+        creditOracles[oracle] = authorized;
     }
     
-    /**
-     * @dev Add/remove authorized oracle (only owner)
-     */
-    function setAuthorizedOracle(address oracle, bool authorized) external onlyOwner {
-        authorizedOracles[oracle] = authorized;
+    function verifyUserKYC(address user) external onlyOwner {
+        userProfiles[user].kycVerified = true;
     }
     
-    /**
-     * @dev Update platform fee rate (only owner)
-     */
-    function setPlatformFeeRate(uint256 newRate) external onlyOwner {
-        require(newRate <= 1000, "Fee rate too high"); // Max 10%
+    function setPlatformFee(uint256 newRate) external onlyOwner {
+        require(newRate <= 1000, "Maximum fee is 10%");
         platformFeeRate = newRate;
     }
     
-    /**
-     * @dev Withdraw platform fees (only owner)
-     */
+    function toggleEmergencyPause() external onlyOwner {
+        emergencyPause = !emergencyPause;
+    }
+    
     function withdrawPlatformFees() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No fees to withdraw");
-        payable(owner()).transfer(balance);
+        require(address(this).balance > 0, "No fees to withdraw");
+        payable(owner).transfer(address(this).balance);
     }
     
-    /**
-     * @dev Pause/unpause contract (only owner)
-     */
-    function setPaused(bool paused) external onlyOwner {
-        if (paused) {
-            _pause();
-        } else {
-            _unpause();
-        }
-    }
+    // Read-only functions for frontend/backend
     
-    // View functions
-    function getLoan(uint256 loanId) external view validLoan(loanId) returns (LoanRequest memory) {
+    function getLoan(uint256 loanId) external view validLoanId(loanId) returns (Loan memory) {
         return loans[loanId];
-    }
-    
-    function getOffer(uint256 offerId) external view validOffer(offerId) returns (LendingOffer memory) {
-        return offers[offerId];
     }
     
     function getUserProfile(address user) external view returns (UserProfile memory) {
@@ -394,35 +315,70 @@ contract NexaCred is ReentrancyGuard, Ownable, Pausable {
     }
     
     function getUserLoans(address user) external view returns (uint256[] memory) {
-        return userLoans[user];
+        return userLoanIds[user];
     }
     
     function getUserLendings(address user) external view returns (uint256[] memory) {
-        return userLendings[user];
+        return userLendingIds[user];
     }
     
     function getActiveLoans() external view returns (uint256[] memory) {
         return activeLoanIds;
     }
     
-    function getActiveOffers() external view returns (uint256[] memory) {
-        return activeOfferIds;
-    }
-    
-    function getContractStats() external view returns (
+    function getPlatformStats() external view returns (
         uint256 totalLoans,
-        uint256 totalOffers,
-        uint256 totalValueLocked
+        uint256 totalValue,
+        uint256 feesCollected
     ) {
-        return (_loanIdCounter, _offerIdCounter, address(this).balance);
+        return (nextLoanId - 1, address(this).balance, address(this).balance);
     }
     
-    // Emergency functions
-    receive() external payable {
-        // Allow contract to receive Ether for platform fees
+    /**
+     * Check if user can borrow (has good standing)
+     * Called by: Frontend before showing loan form
+     */
+    function canUserBorrow(address user) external view returns (bool) {
+        UserProfile memory profile = userProfiles[user];
+        
+        // Basic eligibility checks
+        if (!profile.kycVerified) return false;
+        if (profile.creditScore < 500) return false;
+        if (profile.defaultedLoans > profile.successfulLoans) return false;
+        
+        return true;
     }
     
-    fallback() external payable {
-        revert("Function not found");
+    /**
+     * Get loan eligibility info
+     * Called by: Frontend to show borrowing limits
+     */
+    function getBorrowingLimits(address user) external view returns (
+        uint256 maxAmount,
+        uint256 suggestedRate,
+        bool eligible
+    ) {
+        UserProfile memory profile = userProfiles[user];
+        
+        if (!canUserBorrow(user)) {
+            return (0, 0, false);
+        }
+        
+        // Calculate limits based on credit score
+        if (profile.creditScore >= 750) {
+            maxAmount = MAX_LOAN_AMOUNT;
+            suggestedRate = 800; // 8%
+        } else if (profile.creditScore >= 650) {
+            maxAmount = 10 ether;
+            suggestedRate = 1200; // 12%
+        } else {
+            maxAmount = 5 ether;
+            suggestedRate = 1800; // 18%
+        }
+        
+        eligible = true;
     }
+    
+    // Allow contract to receive ETH for fees
+    receive() external payable {}
 }

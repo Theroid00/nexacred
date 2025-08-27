@@ -1,51 +1,50 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
 /**
- * @title CreditScore
- * @notice Admin-controlled, fraud-aware credit score registry with immutable on-chain audit trail.
- * @dev Minimal-dependency design using Solidity 0.8.x checked math (no SafeMath needed).
- *      Exposes integration-friendly methods: getCreditScore, updateScore, flagFraud.
- *      Thoroughly commented and modular to allow future extensions:
- *        - Peer-to-Peer Lending hooks
- *        - Tokenized Credit History
- *        - Decentralized Identity (DID)
+ * @title CreditScore Registry
+ * @dev Stores and manages credit scores on blockchain with complete audit trail
+ * 
+ * This contract handles:
+ * - Secure credit score storage for users
+ * - Historical tracking of all score changes
+ * - Admin controls for authorized score updates
+ * - Fraud detection and flagging system
+ * 
+ * Integration Points:
+ * - Backend API can read scores via getCreditScore()
+ * - ML service updates scores via updateScore()
+ * - Frontend displays score history from audit trail
  */
 contract CreditScore {
-    // ---------------------------------------------------------------------
-    // Ownership & Roles (minimal dependencies)
-    // ---------------------------------------------------------------------
+    // Contract owner and access control
     address public owner;
-    mapping(address => bool) public authorizedUpdaters; // Oracles/admins that can update scores
+    mapping(address => bool) public authorizedUpdaters;
 
-    // ---------------------------------------------------------------------
-    // Credit Score Storage
-    // ---------------------------------------------------------------------
-    mapping(address => uint256) private creditScores;     // Current score
-    mapping(address => uint256) public lastUpdated;       // Last update timestamp
-    mapping(address => string) public scoreMetadata;      // Optional metadata for latest score (e.g., model version)
+    // Core credit score data
+    mapping(address => uint256) private creditScores;
+    mapping(address => uint256) public lastUpdated;
+    mapping(address => string) public scoreMetadata;
 
-    // Immutable audit trail of score changes (append-only)
+    // Audit trail for transparency
     struct ScoreChange {
         uint256 oldScore;
         uint256 newScore;
         uint256 timestamp;
-        address actor;       // updater (oracle/admin)
-        string reason;       // short reason/model info
+        address updatedBy;
+        string reason;
     }
-    mapping(address => ScoreChange[]) private scoreHistory; // user => history array
+    mapping(address => ScoreChange[]) private scoreHistory;
 
-    // ---------------------------------------------------------------------
-    // Fraud flagging
-    // ---------------------------------------------------------------------
+    // Fraud protection system
     mapping(address => bool) private fraudFlag;
     struct FraudEvent {
-        bool flagged;        // true when flagged, false when cleared
+        bool flagged;
         uint256 timestamp;
-        address actor;       // who flagged/cleared
-        string reason;       // reason for flag or clearance
+        address flaggedBy;
+        string reason;
     }
-    mapping(address => FraudEvent[]) private fraudHistory; // user => fraud events
+    mapping(address => FraudEvent[]) private fraudHistory;
 
     // ---------------------------------------------------------------------
     // Events
@@ -171,13 +170,13 @@ contract CreditScore {
         lastUpdated[_user] = block.timestamp;
         scoreMetadata[_user] = _reason; // store latest reason as metadata for convenience
 
-        // append to audit trail
+        // Record change in audit trail
         scoreHistory[_user].push(
             ScoreChange({
                 oldScore: old,
                 newScore: _newScore,
                 timestamp: block.timestamp,
-                actor: msg.sender,
+                updatedBy: msg.sender,
                 reason: _reason
             })
         );
@@ -250,13 +249,13 @@ contract CreditScore {
             uint256 oldScore,
             uint256 newScore,
             uint256 timestamp,
-            address actor,
+            address updatedBy,
             string memory reason
         )
     {
         require(_index < scoreHistory[_user].length, "Index out of bounds");
         ScoreChange storage ch = scoreHistory[_user][_index];
-        return (ch.oldScore, ch.newScore, ch.timestamp, ch.actor, ch.reason);
+        return (ch.oldScore, ch.newScore, ch.timestamp, ch.updatedBy, ch.reason);
     }
 
     function getLatestScoreChange(address _user)
@@ -267,7 +266,7 @@ contract CreditScore {
             uint256 oldScore,
             uint256 newScore,
             uint256 timestamp,
-            address actor,
+            address updatedBy,
             string memory reason
         )
     {
@@ -276,7 +275,7 @@ contract CreditScore {
             return (false, 0, 0, 0, address(0), "");
         }
         ScoreChange storage ch = scoreHistory[_user][len - 1];
-        return (true, ch.oldScore, ch.newScore, ch.timestamp, ch.actor, ch.reason);
+        return (true, ch.oldScore, ch.newScore, ch.timestamp, ch.updatedBy, ch.reason);
     }
 
     // ---------------------------------------------------------------------
@@ -295,7 +294,7 @@ contract CreditScore {
     {
         fraudFlag[_user] = _flag;
         fraudHistory[_user].push(
-            FraudEvent({ flagged: _flag, timestamp: block.timestamp, actor: msg.sender, reason: _reason })
+            FraudEvent({ flagged: _flag, timestamp: block.timestamp, flaggedBy: msg.sender, reason: _reason })
         );
         emit FraudFlagSet(_user, _flag, block.timestamp, msg.sender, _reason);
     }
@@ -311,11 +310,11 @@ contract CreditScore {
     function getFraudEvent(address _user, uint256 _index)
         external
         view
-        returns (bool flagged, uint256 timestamp, address actor, string memory reason)
+        returns (bool flagged, uint256 timestamp, address flaggedBy, string memory reason)
     {
         require(_index < fraudHistory[_user].length, "Index out of bounds");
         FraudEvent storage ev = fraudHistory[_user][_index];
-        return (ev.flagged, ev.timestamp, ev.actor, ev.reason);
+        return (ev.flagged, ev.timestamp, ev.flaggedBy, ev.reason);
     }
 
     // ---------------------------------------------------------------------
