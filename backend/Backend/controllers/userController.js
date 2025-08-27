@@ -1,6 +1,9 @@
 // /controllers/userController.js
 import User from '../modals/User.js';
 import bcrypt from "bcryptjs";  
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
 
 // 1️⃣ Register a new user
 export async function registerUser(req, res) {
@@ -36,18 +39,24 @@ export async function registerUser(req, res) {
 export async function loginUser(req, res) {
   try {
     const { email, password } = req.body;
-
-    // Find user
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: "Invalid email or password" });
+    if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(400).json({ error: "Invalid email or password" });
+    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
-    res.json({ message: "Login successful", user });
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Optionally, save the token in the database if you want to track logins
+    // user.token = token;
+    // await user.save();
+
+     res.json({ token, user });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }

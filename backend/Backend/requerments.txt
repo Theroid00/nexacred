@@ -5,3 +5,4 @@ mongoose
 dotenv 
 cors
 bcryptjs
+jsonwebtoken
