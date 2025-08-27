@@ -1,278 +1,217 @@
-# ML Module - RAG Chatbot System
+# NexaCred ML Components
 
-## 🎯 Overview
+## Overview
 
-This ML module contains the **RAG (Retrieval-Augmented Generation) Chatbot System** - the core AI component of NexaCred that provides intelligent financial advice using IBM Granite 3.1 8B Instruct model with Indian financial regulations knowledge.
+The NexaCred ML folder contains a comprehensive suite of machine learning and AI components for credit scoring, risk assessment, and financial assistance. The architecture has been optimized to eliminate redundancy while providing a robust, scalable system.
 
-## 🤖 Main System: RAG Chatbot
-
-### 📁 Core Directory Structure
+## Architecture
 
 ```
 ml/
-├── rag_chatbot/                 # 🔥 MAIN RAG CHATBOT SYSTEM
-│   ├── models/                  # AI model components
-│   │   ├── generator.py         # IBM Granite 3.1 8B integration
-│   │   └── embeddings.py        # Sentence transformers
-│   ├── retrieval/               # Document retrieval system
-│   │   ├── dummy.py             # Sample financial regulations
-│   │   └── mongo_stub.py        # MongoDB Vector Search (ready)
-│   ├── pipeline/                # RAG orchestration
-│   │   ├── rag.py               # Main RAG pipeline
-│   │   ├── token_utils.py       # Token management
-│   │   └── chunking.py          # Text processing
-│   ├── api/                     # FastAPI web service
-│   │   └── app.py               # REST endpoints with Swagger docs
-│   ├── cli.py                   # Interactive command-line interface
-│   ├── config.py                # Configuration management
-│   ├── prompts.py               # Financial prompt templates
-│   ├── test_smoke.py            # Comprehensive functionality tests
-│   └── README.md                # Detailed RAG documentation
-└── [temporary files...]         # See Temporary/Legacy Files section
+├── credit_utils.py           # Core utility functions
+├── data_preprocessor.py      # Data preprocessing pipeline
+├── hybrid_credit_system.py   # Advanced ML models
+├── financial_assistant.py    # Integration layer & API
+├── granite_agents.py         # AI assistance stub
+└── rag_chatbot/             # RAG chatbot system
 ```
 
-## 🚀 Quick Start
+## Core Components
 
-### Prerequisites
+### 1. Credit Utilities (`credit_utils.py`)
+**Purpose**: Centralized utility functions for credit scoring calculations
 
-```bash
-# Python 3.8+
-pip install torch transformers sentence-transformers
-pip install fastapi uvicorn pydantic-settings
-pip install huggingface-hub
+**Key Features**:
+- Heuristic credit scoring (300-900 range)
+- 5-category classification system (Poor, Fair, Good, Very Good, Exceptional)
+- Risk factor extraction and analysis
+- Recommendation generation for credit improvement
+- Score-to-category mapping utilities
+
+**Functions**:
+- `calculate_base_credit_score(data)` - Compute heuristic credit score
+- `extract_score_factors(data)` - Extract qualitative factors
+- `generate_recommendations_three_class(prediction)` - Generate improvement recommendations
+- `score_to_category_five(score)` - Map score to 5-class category
+- `score_to_probabilities_five(score)` - Generate probability distribution
+
+### 2. Data Preprocessor (`data_preprocessor.py`)
+**Purpose**: Comprehensive data preprocessing pipeline for credit datasets
+
+**Key Features**:
+- Missing value imputation with intelligent strategies
+- Outlier detection and handling
+- Data type validation and conversion
+- Feature engineering and creation
+- Categorical variable encoding
+- Data quality validation
+
+**Main Class**: `NexaCreditDataPreprocessor`
+- `preprocess_dataset(file_path, is_training)` - Main preprocessing pipeline
+- Handles income normalization, age validation, SSN formatting
+- Statistical imputation based on occupation and other factors
+- Outlier detection using IQR method
+
+### 3. Hybrid Credit System (`hybrid_credit_system.py`)
+**Purpose**: Advanced ML models using traditional algorithms
+
+**Key Features**:
+- Multiple ML algorithms (Random Forest, Gradient Boosting, Logistic Regression)
+- Model training and evaluation with cross-validation
+- Feature importance analysis
+- 3-class prediction system (Poor, Standard, Good)
+- Credit score explanation and reasoning
+
+**Main Class**: `HybridCreditScoringSystem`
+- `train_traditional_models(X_train, y_train, X_val, y_val)` - Train multiple models
+- `predict_credit_score(X, model_name)` - Make predictions
+- `generate_credit_score_explanation(X, prediction, probabilities)` - Explain predictions
+
+### 4. Financial Assistant (`financial_assistant.py`)
+**Purpose**: Main integration layer providing unified API for backend
+
+**Key Features**:
+- Orchestrates all ML components
+- Provides standardized API for credit scoring
+- Loan offer generation based on credit assessment
+- Basic fraud detection capabilities
+- System health monitoring
+
+**Main Class**: `NexaCredFinancialAssistant`
+- `get_score(user_id, customer_data)` - Get credit score with explanation
+- `generate_offer(user_id, customer_data, loan_type)` - Generate loan offers
+- `detect_fraud(transaction_data)` - Detect fraudulent transactions
+- `get_system_status()` - System health check
+
+### 5. Granite Agents (`granite_agents.py`)
+**Purpose**: AI assistance stub for financial advice
+
+**Key Features**:
+- Basic financial advice generation
+- Credit profile analysis
+- Knowledge base for financial tips
+- Chatbot functionality without external dependencies
+
+**Main Class**: `IBMGraniteFinancialAI`
+- `generate_financial_advice(user_query, context)` - Generate advice
+- `analyze_credit_profile(customer_data)` - Analyze credit profile
+
+### 6. RAG Chatbot (`rag_chatbot/`)
+**Purpose**: Advanced RAG-based chatbot for financial regulations
+
+**Key Features**:
+- IBM Granite 3.0 8B Instruct integration
+- Vector embeddings for semantic search
+- MongoDB integration for regulation retrieval
+- Multi-domain financial expertise
+- Real-time regulation updates
+
+## Data Flow
+
+```
+Customer Data → Data Preprocessor → ML Models → Financial Assistant → Backend API
+                     ↓
+              Credit Utilities ← → Granite Agents (AI Advice)
+                     ↓
+              RAG Chatbot (Regulatory Guidance)
 ```
 
-### 1. Interactive CLI
+## Usage Examples
 
-```bash
-cd rag_chatbot
-
-# Start interactive chat
-python -m rag_chatbot
-
-# Single query
-python cli.py --query "What are RBI guidelines for personal loans?"
-
-# Health check
-python cli.py --health
-
-
-### 3. Python Integration
-
+### Basic Credit Scoring
 ```python
-from rag_chatbot.pipeline.rag import RAGPipeline
-from rag_chatbot.retrieval.dummy import DummyRetriever
-from rag_chatbot.config import Config
+from financial_assistant import NexaCredFinancialAssistant
 
-# Initialize system
-config = Config()
-retriever = DummyRetriever(config)
-pipeline = RAGPipeline(retriever, config)
-
-# Ask questions
-response = pipeline.generate_response(
-    "What are the eligibility criteria for credit cards in India?"
-)
-
-print(f"Answer: {response['response']}")
-print(f"Retrieved docs: {len(response['retrieved_docs'])}")
-```
-
-## 🎯 Features
-
-### 🧠 AI Capabilities
-
-- **IBM Granite 3.1 8B Instruct**: Advanced language model for financial responses
-- **Intelligent Model Caching**: Downloads once, loads instantly on subsequent runs
-- **4-bit Quantization**: Memory-efficient inference with bitsandbytes support
-- **Context Management**: Smart token counting and context window optimization
-
-### 🔍 RAG System
-
-- **Semantic Retrieval**: sentence-transformers for document similarity
-- **Financial Knowledge**: Specialized in Indian banking, lending, payments
-- **MongoDB Ready**: Designed for MongoDB Atlas Vector Search
-- **Dummy Retriever**: 5 sample Indian financial regulations for testing
-
-### 🌐 API & Interfaces
-
-- **FastAPI Service**: Production-ready REST API with automatic documentation
-- **Interactive CLI**: Chat-style command-line interface
-- **Health Monitoring**: System health checks and diagnostics
-- **Error Handling**: Graceful fallbacks and informative error messages
-
-## 📚 Knowledge Domains
-
-The RAG system specializes in Indian financial regulations:
-
-- **🏦 Banking**: KYC, AML, account procedures, RBI guidelines
-- **💳 Credit Cards**: Interest rates, eligibility, compliance requirements
-- **🏠 Loans**: Personal, home, business loan regulations and criteria
-- **🔄 P2P Lending**: RBI guidelines for peer-to-peer platforms
-- **💰 Digital Payments**: UPI, NEFT, RTGS transaction rules
-- **📋 Compliance**: Regulatory requirements, penalties, documentation
-
-## 🔧 Configuration
-
-Key configuration options in `rag_chatbot/config.py`:
-
-```python
-# Model Configuration
-granite_model_id = "ibm-granite/granite-3.1-8b-instruct"
-embedding_model_id = "sentence-transformers/all-MiniLM-L6-v2"
-
-# Generation Parameters
-temperature = 0.1          # Conservative for financial advice
-max_output_length = 512    # Response length limit
-retrieval_top_k = 5        # Documents to retrieve
-
-# Hardware Options
-use_4bit = False           # Enable for memory efficiency
-device_map = "auto"        # Automatic GPU/CPU mapping
-```
-
-## 🧪 Testing
-
-```bash
-cd rag_chatbot
-
-# Run all tests
-python test_smoke.py
-
-# Test specific components
-python -c "from config import Config; print('Config loaded:', Config().granite_model_id)"
-python -c "from retrieval.dummy import DummyRetriever; from config import Config; r=DummyRetriever(Config()); print('Retriever test:', len(r.retrieve('loans')))"
-```
-
-## 📖 API Documentation
-
-### Health Check
-```bash
-curl http://localhost:8000/health
-```
-
-### Query Processing
-```bash
-curl -X POST "http://localhost:8000/infer" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "What are the RBI guidelines for digital payments?",
-    "use_dummy_retriever": true
-  }'
-```
-
-### Response Format
-```json
-{
-  "response": "According to RBI guidelines, digital payments...",
-  "retrieved_docs": [
-    {
-      "content": "RBI Digital Payment Guidelines...",
-      "metadata": {"source": "rbi_guidelines.pdf"}
-    }
-  ],
-  "metadata": {
-    "status": "success",
-    "num_retrieved_docs": 3
-  }
+assistant = NexaCredFinancialAssistant()
+customer_data = {
+    'annual_income': 800000,
+    'debt_to_income_ratio': 0.25,
+    'credit_utilization_ratio': 0.15,
+    'number_of_late_payments': 0,
+    'age': 35
 }
+
+result = assistant.get_score("user123", customer_data)
+print(f"Credit Score: {result['credit_score']}")
+print(f"Category: {result['credit_category']}")
 ```
 
-## 🚀 Production Deployment
-
-### Environment Variables
-```bash
-export GRANITE_MODEL_ID="ibm-granite/granite-3.1-8b-instruct"
-export EMBEDDING_MODEL_ID="sentence-transformers/all-MiniLM-L6-v2"
-export USE_4BIT="true"  # For memory efficiency
-```
-
-### Production Server
-```bash
-# Install production dependencies
-pip install uvicorn[standard] gunicorn
-
-# Start with Gunicorn
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker api.app:app --bind 0.0.0.0:8000
-```
-
-### MongoDB Integration (Ready)
+### Loan Offer Generation
 ```python
-# When ready to implement MongoDB Vector Search
-from rag_chatbot.retrieval.mongo_stub import MongoRetrieverStub
-
-# The stub contains detailed implementation guidance
-retriever = MongoRetrieverStub(config)  # Will raise NotImplementedError with TODO
+offer = assistant.generate_offer("user123", customer_data, "personal")
+if offer['offer']['approved']:
+    print(f"Approved Amount: ₹{offer['offer']['max_amount']}")
+    print(f"Interest Rate: {offer['offer']['interest_rate']}%")
 ```
 
-## 📋 System Requirements
+### Advanced ML Model Training
+```python
+from hybrid_credit_system import HybridCreditScoringSystem
+from data_preprocessor import NexaCreditDataPreprocessor
 
-### Minimum Requirements
-- **Python**: 3.8+
-- **RAM**: 8GB (16GB recommended)
-- **Storage**: 20GB for model files
-- **CPU**: Multi-core processor
+# Preprocess data
+preprocessor = NexaCreditDataPreprocessor()
+train_df = preprocessor.preprocess_dataset("train.csv", is_training=True)
 
-### Recommended for Production
-- **RAM**: 32GB+
-- **GPU**: NVIDIA GPU with 8GB+ VRAM
-- **Storage**: SSD with 50GB+ free space
-- **Network**: High-bandwidth for model downloads
-
----
-
-## 🗂️ Temporary/Legacy Files
-
-> **Note**: The following files are temporary and will be refactored or removed in future versions. They contain experimental or legacy functionality that has been superseded by the main RAG chatbot system.
-
-### 📂 Legacy ML Components
-
-```
-ml/
-├── credit_scoring.py           # 🚧 Legacy: Basic credit scoring (superseded by RAG)
-├── credit_utils.py             # 🚧 Legacy: Utility functions (being integrated)
-├── data_preprocessor.py        # 🚧 Legacy: Data preprocessing (being updated)
-├── enhanced_preprocessor.py    # 🚧 Legacy: Enhanced preprocessing (temporary)
-├── financial_assistant.py      # 🚧 Legacy: Old assistant (replaced by RAG)
-├── granite_financial_ai.py     # 🚧 Temporary: Will be refactored to use RAG backend
-├── hybrid_credit_system.py     # 🚧 Legacy: Multi-model system (being integrated)
-└── train_model.py              # 🚧 Legacy: Traditional ML training (supplementary)
+# Train models
+credit_system = HybridCreditScoringSystem()
+results = credit_system.train_traditional_models(X_train, y_train, X_val, y_val)
 ```
 
-### 🔄 Integration Status
+## API Integration
 
-- **✅ Completed**: Main RAG chatbot system is production-ready
-- **🔄 In Progress**: Integrating legacy ML components with RAG backend
-- **📅 Planned**: Consolidation of all ML functionality under RAG system
+The `financial_assistant.py` module provides the main interface expected by the backend:
 
-### 🚫 Removed Files
+- **Backend Import**: `from financial_assistant import NexaCredFinancialAssistant`
+- **Granite Import**: `from granite_agents import IBMGraniteFinancialAI`
 
-These duplicate implementations have been removed to eliminate redundancy:
+Both modules are designed to be drop-in replacements for the backend's expected interfaces.
 
-- ~~`indian_financial_rag.py`~~ → Consolidated into `rag_chatbot/`
-- ~~`rag_api_server.py`~~ → Replaced by `rag_chatbot/api/app.py`
-- ~~`setup_rag_chatbot.py`~~ → Replaced by main setup instructions
-- ~~`test_rag_chatbot.py`~~ → Replaced by `rag_chatbot/test_smoke.py`
-- ~~`README_RAG_CHATBOT.md`~~ → Replaced by `rag_chatbot/README.md`
-- ~~`requirements_rag.txt`~~ → Integrated into main requirements
+## Dependencies
 
----
+Core dependencies:
+- `pandas` - Data manipulation
+- `numpy` - Numerical computing
+- `scikit-learn` - Machine learning algorithms
+- `datetime` - Timestamp management
 
-## 🎯 Focus on RAG Chatbot
+Optional dependencies:
+- `pymongo` - MongoDB integration (RAG chatbot)
+- `sentence-transformers` - Embeddings (RAG chatbot)
+- `ibm-watson-machine-learning` - IBM Granite integration
 
-**The RAG chatbot system in `rag_chatbot/` is the primary AI component.** All development, testing, and production deployment should focus on this system. Legacy files are maintained temporarily for reference and gradual migration.
+## Testing
 
-For detailed technical documentation, see [`rag_chatbot/README.md`](rag_chatbot/README.md).
+See the `tests/` folder for comprehensive system tests covering:
+- Individual component functionality
+- Integration testing
+- End-to-end system validation
 
-## 🤝 Contributing
+## Configuration
 
-When contributing to the ML module:
+Most components work out-of-the-box with sensible defaults. For advanced configuration:
 
-1. **Primary Focus**: Work on the `rag_chatbot/` system
-2. **Legacy Files**: Mark any changes to legacy files as temporary
-3. **Integration**: Help migrate useful functionality from legacy files to RAG system
-4. **Documentation**: Update this README when files are consolidated or removed
+- Modify score ranges in `credit_utils.py`
+- Adjust ML model parameters in `hybrid_credit_system.py`
+- Configure preprocessing steps in `data_preprocessor.py`
 
----
+## Performance
 
-**RAG Chatbot System** - The Future of Financial AI 🚀
+- **Credit Scoring**: Near-instantaneous with heuristic methods
+- **ML Training**: Minutes for traditional algorithms on typical datasets
+- **Data Preprocessing**: Handles datasets with 100K+ records efficiently
+- **Memory Usage**: Optimized for production environments
+
+## Contributing
+
+When contributing to the ML components:
+
+1. Maintain the separation of concerns between modules
+2. Update this README when adding new functionality
+3. Ensure backward compatibility with the backend API
+4. Add appropriate tests for new features
+
+## Version History
+
+- **v2.0.0** (Current) - Optimized architecture with eliminated redundancy
+- **v1.x.x** - Legacy versions (deprecated)

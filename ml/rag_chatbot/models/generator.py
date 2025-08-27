@@ -2,19 +2,159 @@
 IBM Granite Model Generator
 ===========================
 
-Loads and manages IBM Granite 3.1 8B Instruct model for text generation.
+Loads and manages IBM Granite 3.3 2B Instruct model for text generation.
 Automatically downloads model on first use and caches for subsequent runs.
 """
 
 import torch
 import os
+import psutil
+import gc
 from pathlib import Path
-from typing import Tuple, Any, Optional
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-from huggingface_hub import snapshot_download, HfFolder
+from typing import Tuple, Any, Optional, List, Dict
 import logging
 
+# Fix imports - handle missing dependencies gracefully
+try:
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+    from huggingface_hub import snapshot_download, HfFolder
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+    print("Missing dependencies. Please install: pip install torch transformers sentence-transformers scikit-learn")
+
 logger = logging.getLogger(__name__)
+
+
+def get_system_memory_gb() -> float:
+    """Get available system memory in GB."""
+    return psutil.virtual_memory().available / (1024**3)
+
+
+def get_gpu_memory_gb() -> float:
+    """Get available GPU memory in GB."""
+    if torch.cuda.is_available():
+        try:
+            return torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        except Exception:
+            return 0.0
+    return 0.0
+
+
+def cleanup_model_memory(model: Optional[Any] = None, tokenizer: Optional[Any] = None):
+    """Clean up model memory and force garbage collection."""
+    try:
+        if model is not None:
+            del model
+        if tokenizer is not None:
+            del tokenizer
+
+        # Force garbage collection
+        gc.collect()
+
+        # Clear GPU cache if available
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+
+        logger.info("Model memory cleanup completed")
+
+    except Exception as e:
+        logger.warning(f"Error during memory cleanup: {e}")
+
+
+def validate_model_requirements(model_id: str, config) -> bool:
+    """
+    Validate if system can handle the model based on memory requirements.
+
+    Args:
+        model_id: Model identifier
+        config: Configuration object
+
+    Returns:
+        True if system can handle the model
+    """
+    try:
+        # Updated estimates for IBM Granite 3.3 2B and other models
+        if "granite-3.3-2b" in model_id.lower():
+            estimated_memory_gb = 4.0 if config.use_4bit else 8.0  # 2B model is much smaller
+        elif "8b" in model_id.lower() or "8B" in model_id:
+            estimated_memory_gb = 16.0
+        elif "3b" in model_id.lower() or "3B" in model_id:
+            estimated_memory_gb = 6.0
+        elif "2b" in model_id.lower() or "2B" in model_id:
+            estimated_memory_gb = 4.0
+        elif "1b" in model_id.lower() or "1B" in model_id:
+            estimated_memory_gb = 2.0
+        else:
+            estimated_memory_gb = 4.0  # Conservative estimate
+
+        # Check system memory
+        available_memory = get_system_memory_gb()
+
+        if config.enable_gpu and torch.cuda.is_available():
+            gpu_memory = get_gpu_memory_gb()
+            if gpu_memory < estimated_memory_gb:
+                logger.warning(f"GPU memory ({gpu_memory:.1f}GB) insufficient for model ({estimated_memory_gb:.1f}GB)")
+                return False
+        else:
+            if available_memory < estimated_memory_gb:
+                logger.warning(f"System memory ({available_memory:.1f}GB) insufficient for model ({estimated_memory_gb:.1f}GB)")
+                return False
+
+        logger.info(f"Memory validation passed for {model_id}: {estimated_memory_gb:.1f}GB required")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Could not validate memory requirements: {e}")
+        return True  # Assume it's fine if we can't check
+
+
+def try_load_model_with_fallbacks(config, force_download: bool = False) -> Tuple[Any, Any]:
+    """
+    Try to load the primary model, falling back to alternatives if it fails.
+
+    Args:
+        config: Configuration object with model settings
+        force_download: Force re-download even if cached
+
+    Returns:
+        Tuple of (model, tokenizer)
+
+    Raises:
+        RuntimeError: If all models fail to load
+    """
+    models_to_try = [config.granite_model_id] + config.granite_model_fallbacks
+
+    for model_id in models_to_try:
+        try:
+            logger.info(f"Attempting to load model: {model_id}")
+
+            # Validate memory requirements
+            if not validate_model_requirements(model_id, config):
+                logger.warning(f"Skipping {model_id} due to memory constraints")
+                continue
+
+            # Try to load the model
+            model, tokenizer = load_generator(
+                model_id=model_id,
+                device_map=config.device_map,
+                use_4bit=config.use_4bit,
+                force_download=force_download,
+                max_memory_gb=config.max_memory_gb,
+                enable_gpu=config.enable_gpu
+            )
+
+            logger.info(f"Successfully loaded model: {model_id}")
+            return model, tokenizer
+
+        except Exception as e:
+            logger.warning(f"Failed to load {model_id}: {e}")
+            # Clean up any partial loading
+            cleanup_model_memory()
+            continue
+
+    raise RuntimeError(f"All models failed to load. Tried: {models_to_try}")
 
 
 def check_model_exists(model_id: str) -> bool:
@@ -67,14 +207,18 @@ def estimate_model_size(model_id: str) -> str:
     Returns:
         Estimated size string
     """
-    if "8b" in model_id.lower():
+    if "granite-3.3-2b" in model_id.lower():
+        return "~4GB"  # IBM Granite 3.3 2B specific
+    elif "8b" in model_id.lower():
         return "~16GB"
     elif "3b" in model_id.lower():
         return "~6GB"
+    elif "2b" in model_id.lower():
+        return "~4GB"
     elif "1b" in model_id.lower():
         return "~2GB"
     else:
-        return "~10-20GB"
+        return "~4-8GB"  # Conservative estimate for unknown models
 
 
 def download_model_with_progress(model_id: str) -> str:
@@ -109,104 +253,98 @@ def download_model_with_progress(model_id: str) -> str:
 
 
 def load_generator(
-    model_id: str, 
-    device_map: str = "auto", 
-    use_4bit: bool = False,
-    force_download: bool = False
+    model_id: str = "ibm-granite/granite-3.3-2b-instruct",
+    device_map: str = "auto",
+    use_4bit: bool = True,
+    force_download: bool = False,
+    max_memory_gb: float = 6.0,
+    enable_gpu: bool = True
 ) -> Tuple[Any, Any]:
     """
-    Load IBM Granite tokenizer and model with intelligent caching.
-    
-    On first run: Downloads and caches the model (~16GB for Granite 3.1 8B)
-    On subsequent runs: Loads from local cache (much faster)
-    
+    Load IBM Granite 3.3 2B Instruct model with optimized settings.
+
     Args:
         model_id: Hugging Face model identifier
         device_map: Device mapping strategy
-        use_4bit: Enable 4-bit quantization
+        use_4bit: Enable 4-bit quantization for efficiency
         force_download: Force re-download even if cached
-        
+        max_memory_gb: Maximum memory usage
+        enable_gpu: Enable GPU usage if available
+
     Returns:
         Tuple of (model, tokenizer)
-        
-    Raises:
-        RuntimeError: If model loading fails
     """
-    
+    if not TRANSFORMERS_AVAILABLE:
+        raise RuntimeError("Missing dependencies. Install: pip install torch transformers sentence-transformers")
+
     try:
-        # Check if model exists locally (unless forcing download)
+        logger.info(f"Loading IBM Granite model: {model_id}")
+
+        # Check if model exists locally
         if not force_download and check_model_exists(model_id):
-            logger.info(f"🔄 Loading cached model: {model_id}")
+            logger.info(f"Model {model_id} found in cache")
         else:
-            if force_download:
-                logger.info(f"🔄 Force downloading model: {model_id}")
-            
-            # Download model if not cached
-            download_model_with_progress(model_id)
-        
-        logger.info(f"📚 Loading tokenizer for model: {model_id}")
+            logger.info(f"Downloading model {model_id} - this may take a while...")
+            size_estimate = estimate_model_size(model_id)
+            logger.info(f"Estimated download size: {size_estimate}")
+
+        # Configure quantization for efficiency
+        quantization_config = None
+        if use_4bit:
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.float16
+            )
+
+        # Load tokenizer first
+        logger.info("Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(
             model_id,
-            local_files_only=False,  # Allow download if needed
-            trust_remote_code=True   # Required for some models
+            trust_remote_code=True,
+            use_fast=True
         )
-        
-        # Ensure pad token is set
+
+        # Add padding token if missing
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-            logger.debug("Set pad_token to eos_token")
-        
-        # Configure model loading parameters
-        model_kwargs = {
-            "device_map": device_map,
-            "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
-            "local_files_only": False,
-            "trust_remote_code": True
-        }
-        
-        # Handle 4-bit quantization
-        if use_4bit:
-            try:
-                from bitsandbytes import BitsAndBytesConfig
-                
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_use_double_quant=True,
-                )
-                model_kwargs["quantization_config"] = quantization_config
-                logger.info("✅ Enabled 4-bit quantization")
-                
-            except ImportError:
-                logger.warning(
-                    "⚠️ bitsandbytes not available, falling back to non-quantized loading"
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ 4-bit quantization failed: {e}, falling back")
-        
-        logger.info(f"🤖 Loading model: {model_id}")
-        model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
-        
-        # Log model info
-        device = next(model.parameters()).device
-        dtype = next(model.parameters()).dtype
-        logger.info(f"✅ Model loaded successfully!")
-        logger.info(f"📍 Device: {device}")
-        logger.info(f"🔧 Data type: {dtype}")
-        
+
+        # Configure device and memory
+        device = "cuda" if enable_gpu and torch.cuda.is_available() else "cpu"
+
+        # Load model with optimized settings for Granite 3.3 2B
+        logger.info(f"Loading model on {device}...")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            quantization_config=quantization_config,
+            device_map=device_map if enable_gpu else None,
+            torch_dtype=torch.float16 if enable_gpu else torch.float32,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            use_cache=True
+        )
+
+        # Move to device if not using device_map
+        if device_map is None:
+            model = model.to(device)
+
+        # Enable evaluation mode
+        model.eval()
+
+        logger.info(f"Successfully loaded {model_id}")
         return model, tokenizer
         
     except Exception as e:
-        error_msg = f"Failed to load model '{model_id}': {e}"
-        logger.error(error_msg)
-        raise RuntimeError(error_msg) from e
+        logger.error(f"Failed to load model {model_id}: {e}")
+        cleanup_model_memory()
+        raise
 
 
 def load_generator_from_config(config, force_download: bool = False) -> Tuple[Any, Any]:
     """
-    Load generator using configuration object.
-    
+    Load generator using configuration object with fallback support.
+
     Args:
         config: Configuration object with model settings
         force_download: Force re-download even if cached
@@ -214,78 +352,77 @@ def load_generator_from_config(config, force_download: bool = False) -> Tuple[An
     Returns:
         Tuple of (model, tokenizer)
     """
-    return load_generator(
-        model_id=config.granite_model_id,
-        device_map=config.device_map,
-        use_4bit=config.use_4bit,
-        force_download=force_download
-    )
+    return try_load_model_with_fallbacks(config, force_download)
 
 
 def generate(
     model: Any,
     tokenizer: Any,
     prompt: str,
-    max_new_tokens: int = 300,
-    temperature: float = 0.2,
+    max_new_tokens: int = 512,
+    temperature: float = 0.3,
     top_p: float = 0.9,
-    do_sample: bool = True
+    do_sample: bool = True,
+    pad_token_id: Optional[int] = None
 ) -> str:
     """
-    Generate text using the loaded model.
-    
+    Generate text using IBM Granite 3.3 2B model with optimized parameters.
+
     Args:
-        model: Loaded model
+        model: Loaded Granite model
         tokenizer: Loaded tokenizer
-        prompt: Input prompt
+        prompt: Input prompt text
         max_new_tokens: Maximum tokens to generate
         temperature: Sampling temperature
         top_p: Top-p sampling parameter
         do_sample: Whether to use sampling
-        
+        pad_token_id: Padding token ID
+
     Returns:
-        Generated text (assistant portion only)
+        Generated text response
     """
-    
     try:
-        # Tokenize input
+        # Prepare inputs
         inputs = tokenizer(
             prompt,
             return_tensors="pt",
+            padding=True,
             truncation=True,
-            max_length=2048  # Conservative max length
+            max_length=2048  # Granite 3.3 2B context length
         )
         
-        # Move to model device
+        # Move to same device as model
         device = next(model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        # Generation parameters
-        generation_kwargs = {
-            "max_new_tokens": max_new_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "do_sample": do_sample,
-            "pad_token_id": tokenizer.pad_token_id,
-            "eos_token_id": tokenizer.eos_token_id,
-        }
-        
-        # Generate
+        # Set pad_token_id
+        if pad_token_id is None:
+            pad_token_id = tokenizer.eos_token_id
+
+        # Generate with optimized parameters for Granite
         with torch.no_grad():
-            outputs = model.generate(**inputs, **generation_kwargs)
-        
-        # Decode full output
-        full_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        # Extract only the generated portion (after the prompt)
-        assistant_text = full_text[len(prompt):].strip()
-        
-        logger.debug(f"Generated {len(assistant_text)} characters")
-        return assistant_text
-        
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=do_sample,
+                pad_token_id=pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+                repetition_penalty=1.1,
+                length_penalty=1.0,
+                early_stopping=True
+            )
+
+        # Decode response
+        generated_tokens = outputs[0][inputs['input_ids'].shape[1]:]
+        response = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
+        return response.strip()
+
     except Exception as e:
         logger.error(f"Generation failed: {e}")
-        return f"Error during generation: {str(e)}"
+        return "I apologize, but I encountered an error generating a response. Please try again."
 
 
 if __name__ == "__main__":

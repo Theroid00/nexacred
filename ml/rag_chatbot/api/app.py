@@ -111,8 +111,12 @@ async def startup_event():
         logger.info("Initializing RAG pipeline...")
         _config = Config()
         
-        # For now, use dummy retriever (MongoDB stub available)
-        retriever = DummyRetriever(_config)
+        # Load embedder first for DummyRetriever
+        from ..models.embeddings import load_embedder
+        from ..retrieval.dummy import DummyRetriever
+
+        embedder = load_embedder(_config.embedding_model_id)
+        retriever = DummyRetriever(embedder)
         _pipeline = RAGPipeline(retriever, _config)
         
         # Perform health check

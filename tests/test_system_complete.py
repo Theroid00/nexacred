@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-NexaCred Complete System Test
-============================
+NexaCred Complete System Test - Updated for Optimized ML Structure
+==================================================================
 
-Comprehensive test suite for the cleaned up NexaCred platform
+Comprehensive test suite for the optimized NexaCred platform
 Tests all ML components, backend integration, and AI functionality
 """
 
@@ -17,12 +17,12 @@ from datetime import datetime
 from typing import Dict, Any, List
 
 # Add project paths
-project_root = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(project_root, 'ml'))
 sys.path.append(os.path.join(project_root, 'backend'))
 
 class NexaCredSystemTester:
-    """Comprehensive system tester for NexaCred platform"""
+    """Comprehensive system tester for optimized NexaCred platform"""
 
     def __init__(self):
         self.backend_url = "http://localhost:5000"
@@ -31,8 +31,8 @@ class NexaCredSystemTester:
 
     def run_complete_test_suite(self):
         """Run the complete test suite"""
-        print("🚀 NEXACRED COMPLETE SYSTEM TEST")
-        print("=" * 60)
+        print("🚀 NEXACRED COMPLETE SYSTEM TEST - OPTIMIZED ML STRUCTURE")
+        print("=" * 70)
         print(f"Started at: {datetime.now()}")
         print()
 
@@ -40,8 +40,8 @@ class NexaCredSystemTester:
             # Test 1: ML Components
             self.test_ml_components()
 
-            # Test 2: Backend API
-            self.test_backend_api()
+            # Test 2: Backend Integration
+            self.test_backend_integration()
 
             # Test 3: AI Integration
             self.test_ai_integration()
@@ -49,280 +49,238 @@ class NexaCredSystemTester:
             # Test 4: End-to-End Workflow
             self.test_end_to_end_workflow()
 
-            # Generate final report
-            self.generate_test_report()
+            # Test 5: Performance Testing
+            self.test_performance()
 
         except Exception as e:
             print(f"❌ Test suite failed: {e}")
-            import traceback
-            traceback.print_exc()
+        finally:
+            self.cleanup()
+
+        # Print final results
+        self.print_test_summary()
 
     def test_ml_components(self):
-        """Test all ML components"""
-        print("🧠 TESTING ML COMPONENTS")
+        """Test core ML components"""
+        print("🧪 TESTING ML COMPONENTS")
         print("-" * 40)
 
-        results = {}
-
+        # Test 1.1: Data Preprocessor
         try:
-            # Test 1: Traditional Credit Model
-            print("1. Testing Traditional Credit Model...")
-            from train_model import CreditScoreModel
+            from data_preprocessor import NexaCreditDataPreprocessor
 
-            model = CreditScoreModel(random_state=42)
-            X, y = model.generate_synthetic_data(n_samples=100, n_features=15)
-            accuracy = model.train_model(X, y)
+            preprocessor = NexaCreditDataPreprocessor()
+            print("✅ Data preprocessor imported successfully")
 
-            # Test predictions
-            test_data = {
-                'annual_income': 750000,
-                'debt_to_income_ratio': 0.2,
-                'payment_history_score': 1.5,
-                'credit_utilization_ratio': 0.15,
-                'age': 30,
-                'employment_tenure_months': 36
-            }
+            # Test with sample data
+            import pandas as pd
+            import numpy as np
 
-            test_df = pd.DataFrame([test_data])
-            category = model.predict_credit_score_category(test_df)[0]
-            score = model.convert_category_to_score([category])[0]
+            sample_data = pd.DataFrame({
+                'Age': [25, 35, 45, np.nan, 65],
+                'Annual_Income': [500000, 800000, 1200000, 600000, 900000],
+                'Credit_Utilization_Ratio': [0.3, 0.15, 0.45, 0.6, 0.2],
+                'Debt_to_Income_Ratio': [0.4, 0.25, 0.5, 0.35, 0.3],
+                'Num_of_Delayed_Payment': [0, 1, 3, 2, 0],
+                'Credit_Score': ['Good', 'Good', 'Standard', 'Poor', 'Good']
+            })
 
-            results['traditional_ml'] = {
-                'status': 'PASS',
-                'accuracy': accuracy,
-                'test_score': score,
-                'test_category': category
-            }
-            print(f"   ✅ Accuracy: {accuracy:.4f}")
-            print(f"   ✅ Test score: {score}")
+            sample_data.to_csv('temp_sample.csv', index=False)
+            processed_data = preprocessor.preprocess_dataset('temp_sample.csv', is_training=True)
+            os.remove('temp_sample.csv')
+
+            print(f"✅ Data preprocessing works: {processed_data.shape}")
+            self.test_results['data_preprocessor'] = 'PASS'
 
         except Exception as e:
-            results['traditional_ml'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"   ❌ Failed: {e}")
+            print(f"❌ Data preprocessor failed: {e}")
+            self.test_results['data_preprocessor'] = 'FAIL'
 
+        # Test 1.2: Hybrid Credit System
         try:
-            # Test 2: Granite AI System
-            print("\n2. Testing IBM Granite AI System...")
-            from granite_agents import IBMGraniteFinancialAI
+            from hybrid_credit_system import HybridCreditScoringSystem
 
-            granite_ai = IBMGraniteFinancialAI()
-
-            # Test credit analysis
-            credit_result = granite_ai.analyze_credit_risk(test_data)
-
-            # Test loan recommendation
-            loan_result = granite_ai.generate_loan_recommendation(test_data, "personal")
-
-            # Test fraud detection
-            fraud_data = {
-                'amount': 15000,
-                'average_amount': 3000,
-                'transactions_today': 5,
-                'transaction_hour': 14,
-                'new_location': False
-            }
-            fraud_result = granite_ai.detect_fraud(fraud_data)
-
-            results['granite_ai'] = {
-                'status': 'PASS',
-                'model_loaded': granite_ai.model_loaded,
-                'credit_score': credit_result.credit_score,
-                'loan_eligible': loan_result.get('eligible'),
-                'fraud_probability': fraud_result.get('fraud_probability')
-            }
-            print(f"   ✅ Model loaded: {granite_ai.model_loaded}")
-            print(f"   ✅ Credit score: {credit_result.credit_score}")
-            print(f"   ✅ Loan eligible: {loan_result.get('eligible')}")
-            print(f"   ✅ Fraud probability: {fraud_result.get('fraud_probability'):.2%}")
+            credit_system = HybridCreditScoringSystem()
+            print("✅ Hybrid credit system imported successfully")
+            self.test_results['hybrid_credit_system'] = 'PASS'
 
         except Exception as e:
-            results['granite_ai'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"   ❌ Failed: {e}")
+            print(f"❌ Hybrid credit system failed: {e}")
+            self.test_results['hybrid_credit_system'] = 'FAIL'
 
+        # Test 1.3: Financial Assistant
         try:
-            # Test 3: Financial Assistant
-            print("\n3. Testing Financial Assistant...")
             from financial_assistant import NexaCredFinancialAssistant
 
             assistant = NexaCredFinancialAssistant()
 
             # Test credit scoring
-            score_result = assistant.get_score("TEST_USER_001", test_data)
+            test_data = {
+                'annual_income': 800000,
+                'debt_to_income_ratio': 0.25,
+                'credit_utilization_ratio': 0.15,
+                'number_of_late_payments': 0,
+                'age': 35
+            }
 
-            # Test loan generation
-            offer_result = assistant.generate_offer("TEST_USER_001", test_data, "personal")
+            result = assistant.get_score("test_user", test_data)
+            print(f"✅ Financial assistant works: Score = {result.get('credit_score')}")
+
+            # Test loan offer
+            offer = assistant.generate_offer("test_user", test_data)
+            print(f"✅ Loan offer generation works: Approved = {offer.get('offer', {}).get('approved')}")
 
             # Test fraud detection
-            fraud_detection = assistant.detect_fraud(fraud_data)
+            fraud_result = assistant.detect_fraud({
+                'amount': 10000,
+                'daily_transaction_count': 5,
+                'location': 'verified',
+                'hour': 14
+            })
+            print(f"✅ Fraud detection works: Risk = {fraud_result.get('fraud_likelihood')}")
 
-            # Get system status
-            system_status = assistant.get_system_status()
-
-            results['financial_assistant'] = {
-                'status': 'PASS',
-                'primary_ai': system_status['primary_ai'],
-                'granite_available': system_status['granite_available'],
-                'credit_score': score_result['credit_score'],
-                'loan_eligible': offer_result.get('eligible'),
-                'system_health': system_status['system_health']
-            }
-            print(f"   ✅ Primary AI: {system_status['primary_ai']}")
-            print(f"   ✅ Granite available: {system_status['granite_available']}")
-            print(f"   ✅ Credit score: {score_result['credit_score']}")
-            print(f"   ✅ System health: {system_status['system_health']}")
+            self.test_results['financial_assistant'] = 'PASS'
 
         except Exception as e:
-            results['financial_assistant'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"   ❌ Failed: {e}")
+            print(f"❌ Financial assistant failed: {e}")
+            self.test_results['financial_assistant'] = 'FAIL'
 
-        self.test_results['ml_components'] = results
+        # Test 1.4: Granite AI Stub
+        try:
+            from granite_agents import IBMGraniteFinancialAI
+
+            granite_ai = IBMGraniteFinancialAI()
+            advice = granite_ai.generate_financial_advice("How to improve credit score?")
+            print(f"✅ Granite AI works: {advice[:50]}...")
+
+            profile = granite_ai.analyze_credit_profile(test_data)
+            print(f"✅ Credit analysis works: Strength = {profile.get('profile_strength')}")
+
+            self.test_results['granite_ai'] = 'PASS'
+
+        except Exception as e:
+            print(f"❌ Granite AI failed: {e}")
+            self.test_results['granite_ai'] = 'FAIL'
+
         print()
 
-    def test_backend_api(self):
-        """Test backend API functionality"""
-        print("🔗 TESTING BACKEND API")
+    def test_backend_integration(self):
+        """Test backend integration"""
+        print("🔗 TESTING BACKEND INTEGRATION")
         print("-" * 40)
 
-        results = {}
-
         try:
-            # Check if backend is running
-            print("1. Checking backend connectivity...")
-            try:
-                response = requests.get(f"{self.backend_url}/", timeout=5)
-                if response.status_code == 200:
-                    print("   ✅ Backend is running")
-                    backend_running = True
-                else:
-                    print(f"   ⚠️ Backend returned status {response.status_code}")
-                    backend_running = False
-            except requests.exceptions.RequestException:
-                print("   ❌ Backend not accessible, starting it...")
-                backend_running = False
-                # Note: In production, you'd start the backend here
+            # Start backend server
+            backend_path = os.path.join(project_root, 'backend', 'app.py')
 
-            if backend_running:
-                # Test ML status endpoint
-                print("\n2. Testing ML status endpoint...")
+            if os.path.exists(backend_path):
+                print("⏳ Starting backend server...")
+                self.backend_process = subprocess.Popen(
+                    [sys.executable, backend_path],
+                    cwd=os.path.join(project_root, 'backend'),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+
+                # Wait for server to start
+                time.sleep(3)
+
+                # Test health check
                 try:
-                    response = requests.get(f"{self.backend_url}/api/ml/status")
+                    response = requests.get(f"{self.backend_url}/", timeout=5)
                     if response.status_code == 200:
-                        ml_status = response.json()
-                        print(f"   ✅ ML Status: {ml_status.get('ml_available')}")
-                        results['ml_status'] = {'status': 'PASS', 'data': ml_status}
+                        print("✅ Backend server is running")
+                        self.test_results['backend_startup'] = 'PASS'
                     else:
-                        print(f"   ❌ ML status endpoint failed: {response.status_code}")
-                        results['ml_status'] = {'status': 'FAIL', 'error': f"HTTP {response.status_code}"}
-                except Exception as e:
-                    print(f"   ❌ ML status test failed: {e}")
-                    results['ml_status'] = {'status': 'FAIL', 'error': str(e)}
+                        print(f"⚠️ Backend responded with status {response.status_code}")
+                        self.test_results['backend_startup'] = 'PARTIAL'
 
-                # Test credit scoring endpoint
-                print("\n3. Testing credit scoring endpoint...")
-                try:
-                    test_payload = {
-                        'user_id': 'TEST_USER_001',
-                        'customer_data': {
-                            'annual_income': 750000,
-                            'debt_to_income_ratio': 0.2,
-                            'payment_history_score': 1.5,
-                            'credit_utilization_ratio': 0.15,
-                            'age': 30,
-                            'employment_tenure_months': 36
-                        }
-                    }
+                except requests.exceptions.RequestException:
+                    print("❌ Backend server not responding")
+                    self.test_results['backend_startup'] = 'FAIL'
 
-                    response = requests.post(
-                        f"{self.backend_url}/api/credit-score",
-                        json=test_payload,
-                        headers={'Content-Type': 'application/json'}
-                    )
-
-                    if response.status_code == 200:
-                        credit_data = response.json()
-                        print(f"   ✅ Credit score: {credit_data.get('credit_score')}")
-                        print(f"   ✅ Risk level: {credit_data.get('risk_level')}")
-                        results['credit_scoring'] = {'status': 'PASS', 'data': credit_data}
-                    else:
-                        print(f"   ❌ Credit scoring failed: {response.status_code}")
-                        results['credit_scoring'] = {'status': 'FAIL', 'error': f"HTTP {response.status_code}"}
-
-                except Exception as e:
-                    print(f"   ❌ Credit scoring test failed: {e}")
-                    results['credit_scoring'] = {'status': 'FAIL', 'error': str(e)}
             else:
-                results['backend_connectivity'] = {'status': 'FAIL', 'error': 'Backend not running'}
+                print("❌ Backend app.py not found")
+                self.test_results['backend_startup'] = 'FAIL'
 
         except Exception as e:
-            results['backend_api'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"❌ Backend API test failed: {e}")
+            print(f"❌ Backend integration failed: {e}")
+            self.test_results['backend_startup'] = 'FAIL'
 
-        self.test_results['backend_api'] = results
         print()
 
     def test_ai_integration(self):
-        """Test AI system integration"""
-        print("🤖 TESTING AI INTEGRATION")
+        """Test AI integration capabilities"""
+        print("🧠 TESTING AI INTEGRATION")
         print("-" * 40)
 
-        results = {}
-
         try:
-            print("1. Testing AI component compatibility...")
-
-            # Import check
-            import_success = True
-            components = ['train_model', 'granite_agents', 'financial_assistant']
-
-            for component in components:
-                try:
-                    __import__(component)
-                    print(f"   ✅ {component} imported successfully")
-                except ImportError as e:
-                    print(f"   ❌ {component} import failed: {e}")
-                    import_success = False
-
-            results['import_compatibility'] = {'status': 'PASS' if import_success else 'FAIL'}
-
-            print("\n2. Testing AI system interoperability...")
-
-            # Cross-system test
             from financial_assistant import NexaCredFinancialAssistant
             from granite_agents import IBMGraniteFinancialAI
 
             assistant = NexaCredFinancialAssistant()
-            granite = IBMGraniteFinancialAI()
+            granite_ai = IBMGraniteFinancialAI()
 
-            test_customer = {
-                'annual_income': 850000,
-                'debt_to_income_ratio': 0.25,
-                'payment_history_score': 1.8,
-                'credit_utilization_ratio': 0.15,
-                'age': 32
-            }
+            # Test various customer profiles
+            test_profiles = [
+                {
+                    'name': 'High Income Customer',
+                    'data': {
+                        'annual_income': 1500000,
+                        'debt_to_income_ratio': 0.15,
+                        'credit_utilization_ratio': 0.1,
+                        'number_of_late_payments': 0,
+                        'age': 40
+                    }
+                },
+                {
+                    'name': 'Average Customer',
+                    'data': {
+                        'annual_income': 600000,
+                        'debt_to_income_ratio': 0.35,
+                        'credit_utilization_ratio': 0.4,
+                        'number_of_late_payments': 2,
+                        'age': 30
+                    }
+                },
+                {
+                    'name': 'High Risk Customer',
+                    'data': {
+                        'annual_income': 300000,
+                        'debt_to_income_ratio': 0.7,
+                        'credit_utilization_ratio': 0.9,
+                        'number_of_late_payments': 8,
+                        'age': 25
+                    }
+                }
+            ]
 
-            # Compare results from different systems
-            assistant_result = assistant.get_score("TEST_USER", test_customer)
-            granite_result = granite.analyze_credit_risk(test_customer)
+            for profile in test_profiles:
+                print(f"🔍 Testing {profile['name']}:")
 
-            score_diff = abs(assistant_result['credit_score'] - granite_result.credit_score)
+                # Credit scoring
+                score_result = assistant.get_score(f"test_{profile['name'].lower().replace(' ', '_')}", profile['data'])
+                print(f"   Score: {score_result.get('credit_score')} ({score_result.get('credit_category')})")
 
-            print(f"   ✅ Assistant score: {assistant_result['credit_score']}")
-            print(f"   ✅ Granite score: {granite_result.credit_score}")
-            print(f"   ✅ Score difference: {score_diff}")
+                # Loan offer
+                offer_result = assistant.generate_offer(f"test_{profile['name'].lower().replace(' ', '_')}", profile['data'])
+                if offer_result.get('offer', {}).get('approved'):
+                    print(f"   Loan: Approved ₹{offer_result['offer']['max_amount']} at {offer_result['offer']['interest_rate']}%")
+                else:
+                    print(f"   Loan: Declined - {offer_result.get('offer', {}).get('reason', 'Unknown')}")
 
-            results['interoperability'] = {
-                'status': 'PASS',
-                'assistant_score': assistant_result['credit_score'],
-                'granite_score': granite_result.credit_score,
-                'score_difference': score_diff
-            }
+                # AI advice
+                advice = granite_ai.analyze_credit_profile(profile['data'])
+                print(f"   AI Analysis: {advice.get('profile_strength')} profile")
+                print()
+
+            self.test_results['ai_integration'] = 'PASS'
+            print("✅ AI integration tests completed successfully")
 
         except Exception as e:
-            results['ai_integration'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"   ❌ AI integration test failed: {e}")
+            print(f"❌ AI integration failed: {e}")
+            self.test_results['ai_integration'] = 'FAIL'
 
-        self.test_results['ai_integration'] = results
         print()
 
     def test_end_to_end_workflow(self):
@@ -330,130 +288,165 @@ class NexaCredSystemTester:
         print("🔄 TESTING END-TO-END WORKFLOW")
         print("-" * 40)
 
-        results = {}
-
         try:
-            print("1. Simulating complete customer journey...")
-
-            # Step 1: Customer data input
-            customer_profile = {
-                'name': 'Test Customer',
+            # Simulate complete customer journey
+            customer_data = {
                 'annual_income': 750000,
-                'debt_to_income_ratio': 0.22,
-                'payment_history_score': 1.6,
-                'credit_utilization_ratio': 0.18,
-                'age': 28,
-                'employment_tenure_months': 42,
+                'debt_to_income_ratio': 0.28,
+                'credit_utilization_ratio': 0.22,
                 'number_of_late_payments': 1,
-                'total_credit_limit': 150000,
-                'current_debt_amount': 27000
+                'age': 32
             }
 
-            print(f"   📋 Customer: {customer_profile['name']}")
-            print(f"   💰 Income: ₹{customer_profile['annual_income']:,}")
+            print("1️⃣ Customer applies for credit assessment...")
 
-            # Step 2: Credit scoring
+            # Step 1: Credit scoring
             from financial_assistant import NexaCredFinancialAssistant
             assistant = NexaCredFinancialAssistant()
 
-            score_result = assistant.get_score("END_TO_END_TEST", customer_profile)
-            print(f"   📊 Credit Score: {score_result['credit_score']}")
-            print(f"   🎯 Category: {score_result['category']}")
-            print(f"   ⚠️ Risk Level: {score_result['risk_level']}")
+            score_result = assistant.get_score("e2e_customer", customer_data)
+            print(f"   ✅ Credit Score: {score_result.get('credit_score')} ({score_result.get('credit_category')})")
 
-            # Step 3: Loan recommendation
-            loan_offer = assistant.generate_offer("END_TO_END_TEST", customer_profile, "personal")
-            if loan_offer.get('eligible'):
-                print(f"   ✅ Loan Eligible: Yes")
-                print(f"   💵 Amount: ₹{loan_offer['recommended_amount']:,}")
-                print(f"   📈 Rate: {loan_offer['interest_rate']}%")
-                print(f"   📅 EMI: ₹{loan_offer['estimated_emi']:,.2f}")
+            # Step 2: Generate loan offer
+            print("2️⃣ Generating loan offer...")
+            offer_result = assistant.generate_offer("e2e_customer", customer_data, "personal")
+
+            if offer_result.get('offer', {}).get('approved'):
+                print(f"   ✅ Approved: ₹{offer_result['offer']['max_amount']}")
+                print(f"   Interest Rate: {offer_result['offer']['interest_rate']}%")
+                print(f"   Term: {offer_result['offer']['term_months']} months")
+
+                # Step 3: Fraud check on potential transaction
+                print("3️⃣ Performing fraud check...")
+                fraud_result = assistant.detect_fraud({
+                    'amount': offer_result['offer']['max_amount'] * 0.1,  # 10% of approved amount
+                    'daily_transaction_count': 1,
+                    'location': 'verified',
+                    'hour': 15,
+                    'transaction_id': 'e2e_test_001'
+                })
+
+                print(f"   ✅ Fraud Risk: {fraud_result.get('fraud_likelihood')}")
+                print(f"   Recommendation: {fraud_result.get('recommendation')}")
+
+                # Step 4: AI advice
+                print("4️⃣ Generating AI advice...")
+                from granite_agents import IBMGraniteFinancialAI
+                granite_ai = IBMGraniteFinancialAI()
+
+                advice = granite_ai.generate_financial_advice("How can I maintain good credit after taking this loan?")
+                print(f"   ✅ AI Advice: {advice[:100]}...")
+
+                print("🎉 End-to-end workflow completed successfully!")
+                self.test_results['e2e_workflow'] = 'PASS'
+
             else:
-                print(f"   ❌ Loan Eligible: No")
-
-            # Step 4: Fraud monitoring
-            transaction = {
-                'amount': 25000,
-                'average_amount': 8000,
-                'transactions_today': 3,
-                'transaction_hour': 15,
-                'new_location': False
-            }
-
-            fraud_check = assistant.detect_fraud(transaction)
-            print(f"   🛡️ Fraud Risk: {fraud_check['fraud_probability']:.1%}")
-            print(f"   🔍 Action: {fraud_check['recommended_action']}")
-
-            # Step 5: System performance
-            system_status = assistant.get_system_status()
-            print(f"   🏥 System Health: {system_status['system_health']}")
-            print(f"   🤖 Primary AI: {system_status['primary_ai']}")
-
-            results['end_to_end'] = {
-                'status': 'PASS',
-                'credit_score': score_result['credit_score'],
-                'loan_eligible': loan_offer.get('eligible', False),
-                'fraud_risk': fraud_check['fraud_probability'],
-                'system_health': system_status['system_health']
-            }
+                print(f"   ❌ Loan declined: {offer_result.get('offer', {}).get('reason')}")
+                self.test_results['e2e_workflow'] = 'PARTIAL'
 
         except Exception as e:
-            results['end_to_end'] = {'status': 'FAIL', 'error': str(e)}
-            print(f"   ❌ End-to-end test failed: {e}")
+            print(f"❌ End-to-end workflow failed: {e}")
+            self.test_results['e2e_workflow'] = 'FAIL'
 
-        self.test_results['end_to_end_workflow'] = results
         print()
 
-    def generate_test_report(self):
-        """Generate comprehensive test report"""
-        print("📋 TEST REPORT")
-        print("=" * 60)
+    def test_performance(self):
+        """Test system performance"""
+        print("⚡ TESTING PERFORMANCE")
+        print("-" * 40)
 
-        total_tests = 0
-        passed_tests = 0
+        try:
+            from financial_assistant import NexaCredFinancialAssistant
+            import time
 
-        for category, tests in self.test_results.items():
-            print(f"\n📂 {category.upper()}:")
+            assistant = NexaCredFinancialAssistant()
 
-            if isinstance(tests, dict):
-                for test_name, result in tests.items():
-                    total_tests += 1
-                    status = result.get('status', 'UNKNOWN')
+            # Performance test data
+            test_data = {
+                'annual_income': 800000,
+                'debt_to_income_ratio': 0.25,
+                'credit_utilization_ratio': 0.15,
+                'number_of_late_payments': 0,
+                'age': 35
+            }
 
-                    if status == 'PASS':
-                        passed_tests += 1
-                        print(f"   ✅ {test_name}: PASS")
-                    else:
-                        print(f"   ❌ {test_name}: FAIL")
-                        if 'error' in result:
-                            print(f"      Error: {result['error']}")
+            # Test credit scoring performance
+            start_time = time.time()
+            for i in range(100):
+                assistant.get_score(f"perf_test_{i}", test_data)
+            end_time = time.time()
 
-        print(f"\n" + "=" * 60)
-        print(f"📊 SUMMARY")
-        print(f"=" * 60)
-        print(f"Total Tests: {total_tests}")
-        print(f"Passed: {passed_tests}")
-        print(f"Failed: {total_tests - passed_tests}")
-        print(f"Success Rate: {(passed_tests/max(1,total_tests)*100):.1f}%")
+            avg_time = (end_time - start_time) / 100
+            print(f"✅ Credit scoring: {avg_time:.4f}s per request (100 requests)")
 
-        if passed_tests == total_tests:
-            print(f"\n🎉 ALL TESTS PASSED! NexaCred system is ready for production.")
+            # Test loan offer performance
+            start_time = time.time()
+            for i in range(50):
+                assistant.generate_offer(f"perf_test_{i}", test_data)
+            end_time = time.time()
+
+            avg_time = (end_time - start_time) / 50
+            print(f"✅ Loan offers: {avg_time:.4f}s per request (50 requests)")
+
+            self.test_results['performance'] = 'PASS'
+            print("✅ Performance tests completed")
+
+        except Exception as e:
+            print(f"❌ Performance testing failed: {e}")
+            self.test_results['performance'] = 'FAIL'
+
+        print()
+
+    def cleanup(self):
+        """Clean up test resources"""
+        if self.backend_process:
+            print("🧹 Cleaning up backend server...")
+            self.backend_process.terminate()
+            time.sleep(2)
+            if self.backend_process.poll() is None:
+                self.backend_process.kill()
+
+        # Clean up any temp files
+        temp_files = ['temp_sample.csv', 'temp_train_sample.csv', 'temp_test_sample.csv']
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    def print_test_summary(self):
+        """Print final test summary"""
+        print("📊 TEST SUMMARY")
+        print("=" * 50)
+
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results.values() if result == 'PASS')
+        partial_tests = sum(1 for result in self.test_results.values() if result == 'PARTIAL')
+        failed_tests = sum(1 for result in self.test_results.values() if result == 'FAIL')
+
+        for test_name, result in self.test_results.items():
+            status_emoji = {"PASS": "✅", "PARTIAL": "⚠️", "FAIL": "❌"}[result]
+            print(f"{status_emoji} {test_name}: {result}")
+
+        print()
+        print(f"📈 Results: {passed_tests}/{total_tests} PASSED")
+        if partial_tests > 0:
+            print(f"⚠️ {partial_tests} tests had partial success")
+        if failed_tests > 0:
+            print(f"❌ {failed_tests} tests failed")
+
+        if failed_tests == 0:
+            print("🎉 ALL CRITICAL TESTS PASSED!")
+        elif passed_tests >= total_tests * 0.7:
+            print("✅ SYSTEM IS MOSTLY FUNCTIONAL")
         else:
-            print(f"\n⚠️ Some tests failed. Please review the issues above.")
+            print("⚠️ SYSTEM NEEDS ATTENTION")
 
-        print(f"\nCompleted at: {datetime.now()}")
+        print(f"Completed at: {datetime.now()}")
+        print("=" * 50)
 
-# Main execution
-if __name__ == "__main__":
-    # Import pandas for the test
-    try:
-        import pandas as pd
-    except ImportError:
-        print("Installing pandas...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas"])
-        import pandas as pd
-
-    # Run the complete test suite
+def main():
+    """Run the complete system test"""
     tester = NexaCredSystemTester()
     tester.run_complete_test_suite()
+
+if __name__ == "__main__":
+    main()

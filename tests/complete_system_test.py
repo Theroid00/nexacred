@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Complete Hybrid System Training and Testing
-===========================================
+Complete System Training and Testing - Updated for Optimized ML Structure
+=========================================================================
 
-Trains traditional ML models on cleaned datasets and tests IBM Granite integration
+Tests the optimized ML components: data preprocessing, hybrid credit system,
+and financial assistant integration
 """
 
 import pandas as pd
@@ -12,187 +13,136 @@ import os
 import sys
 sys.path.append('../ml')
 
-from enhanced_preprocessor import HybridDataPreprocessor
+from data_preprocessor import NexaCreditDataPreprocessor
 from hybrid_credit_system import HybridCreditScoringSystem
-# Updated to use main RAG chatbot implementation
-from rag_chatbot.pipeline.rag import RAGPipeline
-from rag_chatbot.retrieval.dummy import DummyRetriever
-from rag_chatbot.config import Config
+from financial_assistant import NexaCredFinancialAssistant
+from granite_agents import IBMGraniteFinancialAI
 from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings('ignore')
 
 def main():
     """Main training and testing pipeline"""
-    print("🚀 Starting NexaCred Hybrid AI System Training & Testing")
-    print("=" * 60)
+    print("🚀 Starting NexaCred Optimized ML System Training & Testing")
+    print("=" * 65)
 
     # Step 1: Data Preprocessing
     print("\n📊 STEP 1: DATA PREPROCESSING")
-    preprocessor = HybridDataPreprocessor()
+    preprocessor = NexaCreditDataPreprocessor()
 
     # Process datasets
-    train_processed, test_processed = preprocessor.clean_and_preprocess(
-        'datasets/train.csv',
-        'datasets/test.csv'
-    )
+    print("Processing training dataset...")
+    train_processed = preprocessor.preprocess_dataset('../datasets/train.csv', is_training=True)
 
-    # Prepare training data
-    X_train_full, y_train = preprocessor.prepare_target_variable(train_processed)
-    X_test, _ = preprocessor.prepare_target_variable(test_processed)
+    print("Processing test dataset...")
+    test_processed = preprocessor.preprocess_dataset('../datasets/test.csv', is_training=False)
 
-    # Split training data for validation
-    X_train, X_val, y_train_split, y_val = train_test_split(
-        X_train_full, y_train, test_size=0.2, random_state=42, stratify=y_train
-    )
+    # Prepare target variable for training
+    if 'Credit_Score' in train_processed.columns:
+        # Map Credit_Score to numeric categories
+        score_mapping = {'Poor': 0, 'Standard': 1, 'Good': 2}
+        y_train = train_processed['Credit_Score'].map(score_mapping)
+        X_train_full = train_processed.drop(columns=['Credit_Score']).select_dtypes(include=[np.number])
+
+        # Handle any remaining NaN values
+        X_train_full = X_train_full.fillna(X_train_full.median())
+
+        # Split training data for validation
+        X_train, X_val, y_train_split, y_val = train_test_split(
+            X_train_full, y_train, test_size=0.2, random_state=42, stratify=y_train
+        )
+    else:
+        print("❌ Credit_Score column not found in training data")
+        return
 
     print(f"✅ Data preprocessing completed:")
     print(f"   Training set: {X_train.shape}")
     print(f"   Validation set: {X_val.shape}")
-    print(f"   Test set: {X_test.shape}")
+    print(f"   Target distribution: {y_train.value_counts().to_dict()}")
 
-    # Step 2: Train Traditional ML Models
-    print("\n🤖 STEP 2: TRADITIONAL ML MODEL TRAINING")
+    # Step 2: Traditional ML Model Training
+    print("\n🤖 STEP 2: ML MODEL TRAINING")
     credit_system = HybridCreditScoringSystem()
 
-    # Train models
+    # Train traditional ML models
     training_results = credit_system.train_traditional_models(
         X_train, y_train_split, X_val, y_val
     )
 
-    # Save models
-    credit_system.save_models('models')
+    print("\n📈 Training Results Summary:")
+    for model_name, metrics in training_results.items():
+        print(f"   {model_name}: Validation Accuracy = {metrics['validation_accuracy']:.4f}")
 
-    # Step 3: Test Credit Scoring
-    print("\n📈 STEP 3: TESTING CREDIT SCORING SYSTEM")
+    # Step 3: Test Financial Assistant Integration
+    print("\n💼 STEP 3: FINANCIAL ASSISTANT TESTING")
+    assistant = NexaCredFinancialAssistant()
 
-    # Test on validation set
-    test_sample = X_val.head(5)
-
-    for i, (idx, row) in enumerate(test_sample.iterrows()):
-        print(f"\n--- Test Case {i+1} ---")
-
-        # Get prediction
-        X_single = row.to_frame().T
-        prediction, probabilities = credit_system.predict_credit_score(X_single, 'random_forest')
-
-        # Generate explanation
-        explanation = credit_system.generate_credit_score_explanation(
-            X_single, prediction[0], probabilities[0], 'random_forest'
-        )
-
-        print(f"Credit Category: {explanation['credit_category']}")
-        print(f"Confidence: {explanation['confidence']:.2%}")
-        print(f"Score Range: {explanation['score_range']}")
-        print("Top Factors:")
-        for factor in explanation['key_factors'][:3]:
-            print(f"  - {factor['factor']}: {factor['impact']} impact")
-
-    # Step 4: Test Main RAG Chatbot Integration
-    print("\n🧠 STEP 4: TESTING MAIN RAG CHATBOT INTEGRATION")
-
-    # Initialize RAG pipeline
-    config = Config()
-    retriever = DummyRetriever(config)
-    rag_pipeline = RAGPipeline(retriever, config)
-
-    # Test RAG-based chat
-    print("\n💬 Testing Financial Assistant Chat:")
-    test_questions = [
-        "What factors affect my credit score?",
-        "How can I improve my credit score?",
-        "What types of loans am I eligible for?"
-    ]
-
-    for question in test_questions:
-        print(f"\nUser: {question}")
-        response = rag_pipeline.generate_response(question)
-        print(f"Assistant: {response['response'][:200]}...")
-
-    # Test Risk Assessment (simplified)
-    print("\n📋 Testing Risk Assessment:")
-
-    # Use sample customer data
-    sample_customer = {
-        "Customer_ID": "TEST_001",
-        "Annual_Income": 75000,
-        "Credit_Utilization_Ratio": 0.25,
-        "Num_Credit_Card": 3,
-        "Num_of_Delayed_Payment": 1,
-        "Outstanding_Debt": 15000
+    # Test credit scoring
+    test_customer = {
+        'annual_income': 800000,
+        'debt_to_income_ratio': 0.25,
+        'credit_utilization_ratio': 0.15,
+        'number_of_late_payments': 0,
+        'age': 35
     }
 
-    # Generate risk assessment using RAG
-    risk_query = f"""
-    Analyze the risk profile for a customer with:
-    - Annual Income: ₹{sample_customer['Annual_Income']:,}
-    - Credit Utilization: {sample_customer['Credit_Utilization_Ratio']:.1%}
-    - Number of Credit Cards: {sample_customer['Num_Credit_Card']}
-    - Delayed Payments: {sample_customer['Num_of_Delayed_Payment']}
-    - Outstanding Debt: ₹{sample_customer['Outstanding_Debt']:,}
-    """
+    score_result = assistant.get_score("test_user_001", test_customer)
+    print(f"✅ Credit Score Test:")
+    print(f"   Score: {score_result.get('credit_score', 'N/A')}")
+    print(f"   Category: {score_result.get('credit_category', 'N/A')}")
+    print(f"   Risk Level: {score_result.get('risk_level', 'N/A')}")
 
-    risk_assessment = rag_pipeline.generate_response(risk_query)
+    # Test loan offer generation
+    offer_result = assistant.generate_offer("test_user_001", test_customer, "personal")
+    print(f"\n✅ Loan Offer Test:")
+    if offer_result.get('offer', {}).get('approved'):
+        print(f"   Approved: ₹{offer_result['offer']['max_amount']}")
+        print(f"   Interest Rate: {offer_result['offer']['interest_rate']}%")
+        print(f"   Term: {offer_result['offer']['term_months']} months")
+    else:
+        print(f"   Status: Declined - {offer_result.get('offer', {}).get('reason', 'Unknown')}")
 
-    print(f"Risk Assessment Generated: {len(risk_assessment['response'])} characters")
-    print(f"Documents Retrieved: {len(risk_assessment.get('retrieved_docs', []))}")
-    print("\nRAG Analysis Preview:")
-    print(risk_assessment['response'][:300] + "...")
-
-    # Step 5: Performance Evaluation
-    print("\n📊 STEP 5: SYSTEM PERFORMANCE EVALUATION")
-
-    # Evaluate on validation set
-    evaluation_results = credit_system.evaluate_model_performance(X_val, y_val)
-
-    print("\n🏆 FINAL RESULTS SUMMARY:")
-    print("=" * 40)
-
-    best_model = max(evaluation_results.keys(),
-                    key=lambda k: evaluation_results[k]['accuracy'])
-    best_accuracy = evaluation_results[best_model]['accuracy']
-
-    print(f"✅ Best Traditional ML Model: {best_model}")
-    print(f"✅ Best Accuracy: {best_accuracy:.4f}")
-    print(f"✅ Main RAG Chatbot: Operational")
-    print(f"✅ RAG System: Functional")
-    print(f"✅ Risk Assessment: Active")
-
-    # Save final results
-    print(f"\n💾 Saving results and models...")
-
-    # Create results summary
-    results_summary = {
-        "timestamp": pd.Timestamp.now().isoformat(),
-        "dataset_info": {
-            "train_shape": train_processed.shape,
-            "test_shape": test_processed.shape,
-            "features": len(X_train.columns),
-            "target_distribution": pd.Series(y_train).value_counts().to_dict()
-        },
-        "model_performance": {
-            model: {"accuracy": results["accuracy"]}
-            for model, results in evaluation_results.items()
-        },
-        "best_model": best_model,
-        "system_status": {
-            "traditional_ml": "Trained and Operational",
-            "rag_chatbot": "Integrated and Functional",
-            "rag_system": "Active",
-            "risk_assessment": "Operational"
-        }
+    # Test fraud detection
+    test_transaction = {
+        'amount': 50000,
+        'daily_transaction_count': 3,
+        'location': 'verified',
+        'hour': 14,
+        'transaction_id': 'txn_001'
     }
 
-    # Save to file
-    import json
-    with open('training_results.json', 'w') as f:
-        json.dump(results_summary, f, indent=2, default=str)
+    fraud_result = assistant.detect_fraud(test_transaction)
+    print(f"\n✅ Fraud Detection Test:")
+    print(f"   Risk Score: {fraud_result.get('risk_score', 'N/A')}")
+    print(f"   Likelihood: {fraud_result.get('fraud_likelihood', 'N/A')}")
+    print(f"   Recommendation: {fraud_result.get('recommendation', 'N/A')}")
 
-    print("✅ Training and testing completed successfully!")
-    print("📁 Results saved to training_results.json")
-    print("📁 Models saved to models/ directory")
+    # Step 4: Test Granite AI Integration
+    print("\n🧠 STEP 4: AI ASSISTANCE TESTING")
+    granite_ai = IBMGraniteFinancialAI()
 
-    return results_summary
+    # Test financial advice
+    advice = granite_ai.generate_financial_advice("How can I improve my credit score?")
+    print(f"✅ Financial Advice Test:")
+    print(f"   Query: How can I improve my credit score?")
+    print(f"   Response: {advice}")
+
+    # Test credit profile analysis
+    profile_analysis = granite_ai.analyze_credit_profile(test_customer)
+    print(f"\n✅ Credit Profile Analysis:")
+    print(f"   Strength: {profile_analysis.get('profile_strength', 'N/A')}")
+    print(f"   Insights: {profile_analysis.get('key_insights', [])}")
+    print(f"   Improvements: {profile_analysis.get('improvement_areas', [])}")
+
+    # Step 5: System Status Check
+    print("\n🔍 STEP 5: SYSTEM STATUS CHECK")
+    system_status = assistant.get_system_status()
+    print(f"✅ System Status: {system_status.get('status', 'Unknown')}")
+    print(f"   Components: {system_status.get('components', {})}")
+    print(f"   Version: {system_status.get('version', 'Unknown')}")
+
+    print("\n🎉 ALL TESTS COMPLETED SUCCESSFULLY!")
+    print("=" * 65)
 
 if __name__ == "__main__":
-    results = main()
+    main()
