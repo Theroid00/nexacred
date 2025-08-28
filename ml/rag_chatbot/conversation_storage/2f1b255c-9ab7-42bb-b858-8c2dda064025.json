@@ -1,0 +1,69 @@
+{
+  "session_id": "2f1b255c-9ab7-42bb-b858-8c2dda064025",
+  "user_id": "cli_user",
+  "messages": [
+    {
+      "role": "user",
+      "content": "yo",
+      "timestamp": 1756397750.8623812,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397750.8883545,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "how",
+      "timestamp": 1756397753.7153041,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397753.7848299,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "p2p",
+      "timestamp": 1756397756.3259976,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397756.3600717,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "what",
+      "timestamp": 1756397759.1126735,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397759.1357067,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "sdf",
+      "timestamp": 1756397761.1161008,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397761.1347415,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1756397747.4350996,
+  "updated_at": 1756397761.1347415,
+  "metadata": {}
+}

@@ -1,0 +1,69 @@
+{
+  "session_id": "b863ebdb-7e46-4810-b140-cb141c9530ea",
+  "user_id": "cli_user",
+  "messages": [
+    {
+      "role": "user",
+      "content": "fuck you",
+      "timestamp": 1756397944.4143093,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397944.4264207,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "df",
+      "timestamp": 1756397945.7613747,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397945.849029,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "sdsd",
+      "timestamp": 1756397946.8776622,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397946.8901825,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "p2p",
+      "timestamp": 1756397948.2440424,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397948.257049,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "what is rbi",
+      "timestamp": 1756397950.4136314,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397950.4276774,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1756397941.2292798,
+  "updated_at": 1756397950.4276774,
+  "metadata": {}
+}

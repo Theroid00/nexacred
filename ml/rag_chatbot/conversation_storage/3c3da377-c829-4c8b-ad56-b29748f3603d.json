@@ -1,0 +1,121 @@
+{
+  "session_id": "3c3da377-c829-4c8b-ad56-b29748f3603d",
+  "user_id": "demo_user",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is machine learning?",
+      "timestamp": 1756399469.127725,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "What is machine learning?",
+      "timestamp": 1756399469.1374316,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399556.3451235,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399556.3473363,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "Tell me about Python programming",
+      "timestamp": 1756399556.3553352,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "Tell me about Python programming",
+      "timestamp": 1756399556.3623452,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399556.7738922,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399556.7753317,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "How does MongoDB work?",
+      "timestamp": 1756399556.7943594,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "How does MongoDB work?",
+      "timestamp": 1756399556.8143647,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399557.2214737,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399557.222368,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "What programming languages should I learn?",
+      "timestamp": 1756399557.2303782,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "What programming languages should I learn?",
+      "timestamp": 1756399557.2370658,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399557.6014519,
+      "metadata": {
+        "source": "rag_pipeline"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error while processing your question: Document.__init__() missing 2 required positional arguments: 'id' and 'title'",
+      "timestamp": 1756399557.6034524,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1756399469.1267333,
+  "updated_at": 1756399557.6034524,
+  "metadata": {}
+}

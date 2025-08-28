@@ -1,0 +1,45 @@
+{
+  "session_id": "78917604-e2f7-4081-ba88-df49b0729b66",
+  "user_id": "cli_user",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello",
+      "timestamp": 1756397895.3809078,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397895.3924508,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "what",
+      "timestamp": 1756397898.6651638,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397898.7283258,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "p2p",
+      "timestamp": 1756397900.1363602,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I encountered an error. Please try rephrasing your question.",
+      "timestamp": 1756397900.1533563,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1756397890.0175724,
+  "updated_at": 1756397900.1533563,
+  "metadata": {}
+}

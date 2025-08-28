@@ -1,0 +1,57 @@
+{
+  "session_id": "04b25413-df5c-46ba-8366-c4c80b26b518",
+  "user_id": "demo_user",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is machine learning?",
+      "timestamp": 1756399360.10236,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but the AI system is currently unavailable. Please try again later.",
+      "timestamp": 1756399360.1153588,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "Tell me about Python programming",
+      "timestamp": 1756399360.1273577,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but the AI system is currently unavailable. Please try again later.",
+      "timestamp": 1756399360.1387577,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "How does MongoDB work?",
+      "timestamp": 1756399360.1528728,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but the AI system is currently unavailable. Please try again later.",
+      "timestamp": 1756399360.1653678,
+      "metadata": {}
+    },
+    {
+      "role": "user",
+      "content": "What programming languages should I learn?",
+      "timestamp": 1756399360.1786156,
+      "metadata": {}
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but the AI system is currently unavailable. Please try again later.",
+      "timestamp": 1756399360.1909008,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1756399360.1013584,
+  "updated_at": 1756399360.1909008,
+  "metadata": {}
+}
